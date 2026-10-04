@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — Tailwind v4 CSS-first theme.
+ * Neutral placeholder palette; swap only in this block if the visual
+ * language changes. See PLATFORM-CORE-SPECIFICATION.md Section 15.
+ * Dark mode: class-based (`.dark` on <html>), wired from day one per
+ * Section 15.4 — no retrofit later.
+ *
+ * 2026-09-10 bugfix: Tailwind v4's `dark:` variant defaults to
+ * `prefers-color-scheme: dark` unless a project opts into class-based
+ * dark mode explicitly. This project never did — so `dark:` utilities
+ * (e.g. in src/app/v/[code]/page.tsx) were silently following the
+ * visitor's OS theme, not the `.dark` class, even though nothing in the
+ * app ever adds `.dark` to <html> yet (no theme toggle exists). Net
+ * effect: pages could render a dark background purely because the
+ * visitor's OS was in dark mode — not what was designed. This
+ * `@custom-variant` line is what actually makes it class-based: until a
+ * real theme toggle adds `.dark` to <html>, the app now always renders
+ * light, regardless of OS/browser theme.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+@theme {
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Neutral ramp (slate-leaning). Same ramp lights and darks pull from. */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+  --color-neutral-950: #020617;
+
+  /* Brand accent — placeholder, brand name/colors not final (brand.ts). */
+  --color-accent-500: #0f172a;
+  --color-accent-600: #0b1220;
+
+  --color-danger-500: #dc2626;
+  --color-warning-500: #d97706;
+  --color-success-500: #16a34a;
+
+  /* Landing-page accent (marketing surface only — app UI stays on the
+     neutral ramp above). Indigo, placeholder until brand.ts is final. */
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+
+  /* Type scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  /* Spacing rhythm (base 4px, already Tailwind default — declared
+     explicitly so it reads as a deliberate token, not a fallback). */
+  --spacing: 0.25rem;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+:root {
+  --background: var(--color-neutral-0);
+  --foreground: var(--color-neutral-900);
+  color-scheme: light;
+}
+
+.dark {
+  --background: var(--color-neutral-950);
+  --foreground: var(--color-neutral-50);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Landing-page motion — plain CSS keyframes, zero new dependency (no
+   framer-motion etc). Respects prefers-reduced-motion via the block above,
+   which already forces every animation-duration to ~0. */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0) rotate(var(--float-rot, 0deg)); }
+  50% { transform: translateY(-18px) rotate(var(--float-rot, 0deg)); }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(3%, -4%) scale(1.05); }
+  66% { transform: translate(-3%, 3%) scale(0.97); }
+}
+.animate-float {
+  animation: float-y var(--float-duration, 6s) ease-in-out infinite;
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.7s ease-out both;
+}
+.animate-blob {
+  animation: blob-drift 14s ease-in-out infinite;
+}
