@@ -122,3 +122,112 @@ body {
 .animate-blob {
   animation: blob-drift 14s ease-in-out infinite;
 }
+
+/* ---- Landing REDESIGN v2 — ported from demo/certivo-demo-redesigned.html ----
+   Scroll reveals, hover-lift cards, animated stats, FAQ accordion, template
+   showcase. Plain CSS, zero new dependency. */
+
+/* Reveal on scroll (wired by src/components/landing/reveal.tsx) */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hover-lift cards (trust strip, template gallery) */
+.card-hover {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.28s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+}
+
+/* Animated stat numbers */
+.stat-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* FAQ accordion (wired by src/components/landing/faq-accordion.tsx) */
+.faq-item {
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+.dark .faq-item {
+  border-bottom-color: var(--color-neutral-800);
+}
+.faq-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: none;
+  border: none;
+  padding: 18px 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+.faq-q svg {
+  transition: transform 0.25s ease;
+  color: var(--color-neutral-500);
+  flex: none;
+}
+.faq-item.open .faq-q svg {
+  transform: rotate(180deg);
+}
+.faq-a {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s ease;
+}
+.faq-item.open .faq-a {
+  grid-template-rows: 1fr;
+}
+.faq-a-inner {
+  overflow: hidden;
+}
+.faq-a-inner p {
+  margin: 0;
+  padding: 0 4px 20px;
+  color: var(--color-neutral-500);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* Featured template card — soft indigo wash behind the flagship design */
+.template-featured {
+  background: linear-gradient(
+    135deg,
+    var(--color-neutral-0) 0%,
+    #eef2ff 55%,
+    #e0e7ff 100%
+  );
+}
+.dark .template-featured {
+  background: linear-gradient(
+    135deg,
+    var(--color-neutral-900) 0%,
+    #1e1b4b 60%,
+    #312e81 100%
+  );
+}
+
+/* Gradient text for hero headline accents */
+.text-gradient-brand {
+  background: linear-gradient(120deg, #818cf8 0%, #6366f1 45%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
