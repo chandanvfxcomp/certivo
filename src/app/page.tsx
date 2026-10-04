@@ -157,9 +157,6 @@ function Hero() {
               form, not a certificate — clicking it started a sign-in flow,
               not the thing it promised. Reworded to match what actually
               happens next; label matches the nav/G1 pair exactly. */}
-          <Link href="/student/login">
-            <Button size="lg">Student sign in</Button>
-          </Link>
           <Link href="/admin/login">
             <Button size="lg" variant="outline">
               Institute admin sign in
@@ -186,7 +183,7 @@ function Hero() {
             </span>
           </div>
           <p className="mt-3 text-xs text-neutral-400">
-            Sample certificate — aapke institute ki branding ke saath aisa dikhega
+            Sample certificate — this is how it will look with your institute&apos;s branding
           </p>
         </div>
       </div>
@@ -324,19 +321,19 @@ function LeadSection() {
         <Reveal>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">
-              Institutes ke liye
+              For institutes
             </p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-              Institute chalate ho? Baat karte hain.
+              Run an institute? Let&apos;s talk.
             </h2>
             <p className="mt-3 text-neutral-600 dark:text-neutral-400">
-              Apna naam aur number chhodo — hamari team call karke Certivo ka
-              demo degi aur aapke institute ka setup free mein karegi. Koi spam
-              nahi, sirf kaam ki baat.
+              Leave your name and number — our team will call you with a live
+              Certivo demo and set up your institute for free. No spam, just
+              business.
             </p>
             <ul className="mt-5 space-y-2.5 text-sm text-neutral-600 dark:text-neutral-400">
               {[
-                "10 minute mein pehla verified certificate",
+                "First verified certificate in 10 minutes",
                 "QR + photo verification included",
                 "10 professional templates, Hindi/English support",
               ].map((li) => (
@@ -422,7 +419,12 @@ function SiteFooter() {
       h: "Student",
       links: [
         { label: "Student sign in", href: "/student/login" },
-        { label: "My certificates", href: "/student/login" },
+      ],
+    },
+    {
+      h: "Platform",
+      links: [
+        { label: "Super Admin", href: "/super-admin/login" },
       ],
     },
   ];
