@@ -85,9 +85,9 @@ function loadFontBytes(): { serif: Buffer; script: Buffer; deva: Buffer } {
     const p = join(dir, file);
     return existsSync(p) ? readFileSync(p) : null;
   };
-  let serif = read("PlayfairDisplay-Bold.ttf");
-  let script = read("GreatVibes.ttf");
-  let deva = read("NotoSansDevanagari.ttf");
+  const serif = read("PlayfairDisplay-Bold.ttf");
+  const script = read("GreatVibes.ttf");
+  const deva = read("NotoSansDevanagari.ttf");
   if (!serif || !script || !deva) throw new Error("certificate fonts missing from public/fonts");
   fontBytesCache = { serif, script, deva };
   return fontBytesCache;
