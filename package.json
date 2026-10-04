@@ -4,7 +4,7 @@
   "private": true,
   "description": "Certivo \u2014 multi-tenant SaaS core platform for issuing and verifying certificates. See src/config/brand.ts.",
   "engines": {
-    "node": ">=20 <21"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
