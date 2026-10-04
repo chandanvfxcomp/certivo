@@ -31,6 +31,7 @@ import * as fontkit from "fontkit";
 import { getTemplateRenderer } from "./templates";
 import { DEFAULT_TEMPLATE_ID, isTemplateId } from "./templates/registry";
 import type { CertFonts } from "./templates/types";
+import { FONT_SERIF_B64, FONT_SCRIPT_B64, FONT_DEVA_B64 } from "./fonts-embedded";
 
 export interface CertificateImage {
   bytes: Buffer;
@@ -90,13 +91,6 @@ function loadFontBytes(): { serif: Buffer; script: Buffer; deva: Buffer } {
   let deva = read("NotoSansDevanagari.ttf");
   if (!serif || !script || !deva) {
     // Fallback: embedded base64 fonts (repo may lack the binary TTFs).
-    const { FONT_SERIF_B64, FONT_SCRIPT_B64, FONT_DEVA_B64 } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require("./fonts-embedded") as {
-        FONT_SERIF_B64: string;
-        FONT_SCRIPT_B64: string;
-        FONT_DEVA_B64: string;
-      };
     serif = serif ?? Buffer.from(FONT_SERIF_B64, "base64");
     script = script ?? Buffer.from(FONT_SCRIPT_B64, "base64");
     deva = deva ?? Buffer.from(FONT_DEVA_B64, "base64");
