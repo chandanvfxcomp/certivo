@@ -2,11 +2,10 @@
   "name": "platform",
   "version": "0.0.0",
   "private": true,
-  "description": "Certivo — multi-tenant SaaS core platform for issuing and verifying certificates. See src/config/brand.ts.",
+  "description": "Certivo \u2014 multi-tenant SaaS core platform for issuing and verifying certificates. See src/config/brand.ts.",
   "engines": {
     "node": ">=20 <21"
   },
-  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -22,7 +21,8 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed": "tsx scripts/seed-default-institute.ts"
+    "db:seed": "tsx scripts/seed-default-institute.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "6.2.1",
