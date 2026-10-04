@@ -31,10 +31,10 @@ export function LeadForm() {
         }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
-      if (!data.ok) throw new Error(data.error ?? "Kuch galat ho gaya");
+      if (!data.ok) throw new Error(data.error ?? "Something went wrong");
       setState("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Kuch galat ho gaya");
+      setError(err instanceof Error ? err.message : "Something went wrong");
       setState("error");
     }
   }
@@ -53,25 +53,25 @@ export function LeadForm() {
 
   return (
     <Card className="p-6">
-      <h3 className="font-semibold">Institute / Coaching ke liye callback</h3>
+      <h3 className="font-semibold">Request a callback</h3>
       <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-        Apne institute ke certificates digital karo — QR verification ke saath.
+        Digitize your institute&apos;s certificates — with QR verification.
       </p>
       <form onSubmit={submit} className="mt-4 space-y-3">
-        <Input name="instituteName" placeholder="Institute / Coaching ka naam *" required autoComplete="organization" />
-        <Input name="name" placeholder="Aapka naam (owner/manager) *" required autoComplete="name" />
+        <Input name="instituteName" placeholder="Institute / Coaching name *" required autoComplete="organization" />
+        <Input name="name" placeholder="Your name (owner/manager) *" required autoComplete="name" />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input name="phone" placeholder="Mobile number" inputMode="tel" autoComplete="tel" />
           <Input name="email" type="email" placeholder="Email" autoComplete="email" />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <Button type="submit" disabled={state === "busy"} className="w-full">
-          {state === "busy" ? "Bhej rahe hain…" : "Mujhe call karo"}
+          {state === "busy" ? "Sending…" : "Call me back"}
         </Button>
         <p className="text-xs text-neutral-500">
-          Ye form sirf institutes/coachings ke liye hai. Student ho? Apne institute se certificate lo.
+          This form is for institutes/coachings only. Are you a student? Get your certificate from your institute.
           <br />
-          Email ya phone — kam se kam ek zaroor dein.
+          Email or phone — please provide at least one.
         </p>
       </form>
     </Card>
