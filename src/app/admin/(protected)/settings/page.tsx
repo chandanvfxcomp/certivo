@@ -67,6 +67,7 @@ export default async function AdminSettingsPage() {
         establishedYear={tenant.establishedYear ?? null}
         authorityName={tenant.authorizedPerson ?? ""}
         centreHeadName={centre.headName ?? ""}
+        registrationFeeRupees={Math.round((tenant.registrationFeePaise ?? 0) / 100)}
         logoDataUrl={logoDataUrl}
         campusPhotoDataUrl={campusPhotoDataUrl}
         authoritySignatureDataUrl={authoritySignatureDataUrl}

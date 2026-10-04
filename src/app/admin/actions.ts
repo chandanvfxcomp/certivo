@@ -584,6 +584,7 @@ export async function updateBranding(
   const establishedYearRaw = String(formData.get("establishedYear") ?? "").trim();
   const authorityName = String(formData.get("authorityName") ?? "").trim() || null;
   const centreHeadName = String(formData.get("centreHeadName") ?? "").trim() || null;
+  const registrationFeeRaw = String(formData.get("registrationFeeRupees") ?? "").trim();
 
   let establishedYear: number | null = null;
   if (establishedYearRaw) {
@@ -592,6 +593,15 @@ export async function updateBranding(
       return { status: "error", message: "Established year must be between 1900 and 2100." };
     }
     establishedYear = y;
+  }
+
+  let registrationFeePaise = 0;
+  if (registrationFeeRaw) {
+    const rupees = Number(registrationFeeRaw);
+    if (!Number.isFinite(rupees) || rupees < 0 || rupees > 1000000) {
+      return { status: "error", message: "Registration fee must be between ₹0 and ₹10,00,000." };
+    }
+    registrationFeePaise = Math.round(rupees * 100);
   }
 
   try {
@@ -611,6 +621,7 @@ export async function updateBranding(
       // inputs only expose the relation objects, not the scalar FK fields.
       const tenantData: Prisma.TenantUncheckedUpdateInput = {
         tagline, motto, establishedYear, authorizedPerson: authorityName,
+        registrationFeePaise,
       };
       const centreData: Prisma.CentreUncheckedUpdateInput = { headName: centreHeadName };
 

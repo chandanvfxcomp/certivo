@@ -131,6 +131,12 @@ model Tenant {
   // before they can be selected.
   activeTemplateId String @default("classic-simple") @map("active_template_id")
 
+  // 2026-10-05: student registration fee. The institute sets a one-time
+  // registration fee (paise) that each student pays before their
+  // certificate download is activated. 0 = free, no payment or approval
+  // gate. Collected via Razorpay/Cashfree; invoice auto-generated.
+  registrationFeePaise Int @default(0) @map("registration_fee_paise")
+
   // lifecycle
   termsAcceptedAt DateTime  @map("terms_accepted_at") @db.Timestamptz
   termsVersion    String    @map("terms_version")
@@ -161,6 +167,8 @@ model Tenant {
   notifications Notification[]
   usageCounters UsageCounter[]
   templateUnlocks TenantTemplateUnlock[]
+  invoices      Invoice[]
+  invoiceSequences InvoiceSequence[]
 
   @@index([status, createdAt])
   @@map("tenant")
@@ -180,6 +188,39 @@ model TenantTemplateUnlock {
 
   @@unique([tenantId, templateId])
   @@map("tenant_template_unlock")
+}
+
+// 2026-10-05: student registration fee invoices. One row per successful
+// online registration-fee payment. The PDF is generated at payment time;
+// invoiceNumber is human-readable (INV-<TENANTCODE>-<SEQ>) via the
+// InvoiceSequence counter. Tenant-scoped with RLS like other models.
+model Invoice {
+  id            String   @id @db.Char(26)
+  invoiceNumber String   @unique @map("invoice_number")
+  tenantId      String   @map("tenant_id") @db.Char(26)
+  studentId     String   @map("student_id") @db.Char(26)
+  amountPaise   Int      @map("amount_paise")
+  status        String   @default("PAID") // PAID (only paid invoices are stored)
+  paymentRef    String?  @map("payment_ref")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@map("invoice")
+}
+
+// Per-tenant invoice number counter. Incremented atomically when an
+// invoice is issued; invoiceNumber = INV-<tenant prefix>-<zero-padded seq>.
+model InvoiceSequence {
+  tenantId   String   @id @map("tenant_id") @db.Char(26)
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_sequence")
 }
 
 // 2026-10-04: visit tracking + lead follow-ups. SiteVisit is anonymous
@@ -468,6 +509,15 @@ model Student {
   registrationFeePaise  Int?      @map("registration_fee_paise")
   registrationFeePaid   Boolean   @default(false) @map("registration_fee_paid")
   registrationFeePaidAt DateTime? @map("registration_fee_paid_at") @db.Timestamptz
+  // 2026-10-05: online registration fee flow. registrationPaymentId is the
+  // Razorpay/Cashfree payment reference; invoiceNumber links to the Invoice
+  // row. approvedAt/approvedById gate certificate downloads: a student whose
+  // tenant charges a registration fee cannot download until an admin
+  // approves (sets approvedAt). Tenants with fee 0 auto-approve.
+  registrationPaymentId String?   @map("registration_payment_id")
+  invoiceNumber         String?   @map("invoice_number")
+  approvedAt            DateTime? @map("approved_at") @db.Timestamptz
+  approvedById          String?   @map("approved_by_id") @db.Char(26)
 
   createdBy    String        @map("created_by") @db.Char(26)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
@@ -480,6 +530,7 @@ model Student {
   user         User?         @relation("StudentUser", fields: [userId], references: [id], onDelete: NoAction)
   enrollments  Enrollment[]
   certificates Certificate[]
+  invoices     Invoice[]
 
   @@unique([tenantId, studentCode])
   @@unique([tenantId, email])

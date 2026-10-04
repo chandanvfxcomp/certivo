@@ -26,6 +26,7 @@ export function BrandingForm(props: {
   establishedYear: number | null;
   authorityName: string;
   centreHeadName: string;
+  registrationFeeRupees: number;
   logoDataUrl: string | null;
   campusPhotoDataUrl: string | null;
   authoritySignatureDataUrl: string | null;
@@ -128,6 +129,29 @@ export function BrandingForm(props: {
               currentUrl={props.authoritySignatureDataUrl}
             />
           </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="mb-1 font-semibold">Student registration fee</h2>
+        <p className="mb-4 text-sm text-neutral-500">
+          One-time fee each student pays before their certificate download is activated.
+          Set to 0 for free registration (no payment or approval needed). Paid
+          registrations appear under Approvals.
+        </p>
+        <div className="flex flex-col gap-1.5 max-w-xs">
+          <Label htmlFor="registrationFeeRupees">Fee amount (₹)</Label>
+          <Input
+            id="registrationFeeRupees"
+            name="registrationFeeRupees"
+            type="number"
+            min={0}
+            max={1000000}
+            step="1"
+            defaultValue={props.registrationFeeRupees}
+            placeholder="0"
+          />
+          <p className="text-xs text-neutral-500">0 = free. Students pay online via Razorpay/Cashfree.</p>
         </div>
       </Card>
 

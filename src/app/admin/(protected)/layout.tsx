@@ -31,6 +31,9 @@ export default async function AdminProtectedLayout({
               <Link href="/admin/students" className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50">
                 Students
               </Link>
+              <Link href="/admin/approvals" className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50">
+                Approvals
+              </Link>
               <Link href="/admin/settings" className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50">
                 Settings
               </Link>
