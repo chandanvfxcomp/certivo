@@ -1,0 +1,11 @@
+-- 2026-09-10: certificate download limit
+--
+-- Per the user's explicit instruction: a certificate is downloadable a
+-- limited number of times per fee payment (FREE_DOWNLOADS_PER_PAYMENT in
+-- src/config/certificate.ts) — once a student uses up that allowance, the
+-- certificate/portal/certificate/route.ts download route flips fee_paid
+-- back to false and resets this counter, so the student (or admin) has to
+-- mark the fee paid again before another download is allowed. No RLS
+-- change needed — download_count lives on the already-RLS-covered
+-- `certificate` table and carries no new access path.
+ALTER TABLE "certificate" ADD COLUMN "download_count" INTEGER NOT NULL DEFAULT 0;

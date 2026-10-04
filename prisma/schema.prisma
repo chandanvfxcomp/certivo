@@ -1,0 +1,816 @@
+// prisma/schema.prisma
+//
+// PLATFORM-CORE-SPECIFICATION.md Section 7 — Phase 1 data model, in full.
+//
+// SCOPE CHANGE (2026-09-10, explicit user instruction): the original build
+// order gated Certificate/payment tables behind Phase 2/3, one institute per
+// Phase-2 registration flow. The user asked to pivot to a feature-first MVP
+// instead — landing page, admin-registers-student, student login + a real
+// downloadable certificate, a public verification page, and fee amounts
+// shown transparently (no live payment gateway yet). That is a deliberate,
+// narrower slice of the old Section 7.3/2.2 scope, not the full certificate
+// template engine or a payment gateway integration — see the `Certificate`
+// model below and its comment for exactly what was and wasn't brought
+// forward. Institution self-registration/approval (old Section 9) is
+// deferred again: a single seeded default Tenant is used instead (see
+// scripts/seed-default-institute.ts) until multi-institute onboarding is
+// built.
+//
+// Naming: the spec's own SQL examples (Section 6.3, "ALTER TABLE student
+// ...") use lower snake_case table/column names, so every model below maps
+// to that via @@map/@map. This is the one naming decision the abbreviated
+// spec schema doesn't spell out for every field — flagged here once rather
+// than per line.
+// SPEC-GAP: `User` maps to table `user_account`, not `user` — "user" is a
+// reserved-adjacent identifier in Postgres, and this repo already uses the
+// bare name `app_user` for the RLS-bound database ROLE (Section 6.3). Two
+// different Postgres namespaces (roles vs. tables) can't actually collide,
+// but keeping the names visibly distinct avoids a class of copy-paste bugs
+// in migration SQL and psql sessions. Conservative choice, not a spec rule.
+//
+// Explicit `@relation` foreign keys are added throughout (the spec's
+// listing is "abbreviated" and omits them) so Postgres enforces real
+// referential integrity — every relation uses `onDelete: Restrict` (or is
+// left as Prisma/Postgres's default `NoAction`, which behaves the same way
+// here), never `Cascade`: Hard Rule #4 / spec Section 4.6 forbid hard
+// deletes anywhere, and a cascading FK delete is exactly the kind of hard
+// delete that rule exists to prevent.
+//
+// Every tenant-scoped table gets an explicit FK relation to `Tenant` (its
+// `tenantId` field), per Section 6.2 rule 1 ("... with a foreign key to
+// tenant.id"). SPEC-GAP: plain actor/audit reference columns — createdBy,
+// updatedBy/deletedBy, uploadedBy, invitedBy, actorId, approvedBy — stay as
+// bare `String @db.Char(26)` with no `@relation`. These record who acted,
+// not a structural link the record depends on; a hard FK there would let a
+// user-record decision (which this schema doesn't fully own yet — Phase 1
+// has no user-deletion flow beyond the soft-delete already on `User`)
+// block writes to audit/business tables. Conservative choice, not a spec
+// rule — revisit if a later phase needs to join through them.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled, app_user (RLS-enforced)
+  directUrl = env("DIRECT_URL") // direct, migrator (BYPASSRLS) — migrations only
+}
+
+// ---------------------------------------------------------------------------
+// 7.1 Platform tables (not tenant-scoped)
+// ---------------------------------------------------------------------------
+
+enum TenantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+
+  @@map("tenant_status")
+}
+
+enum InstitutionType {
+  ACADEMY
+  COACHING
+  TRAINING_CENTER
+  SCHOOL
+  COLLEGE
+  OTHER
+
+  @@map("institution_type")
+}
+
+model Tenant {
+  id     String           @id @db.Char(26)
+  slug   String           @unique // immutable after approval
+  prefix String?          @unique // credential prefix, set at approval
+  name   String
+  type   InstitutionType
+  status TenantStatus     @default(PENDING)
+
+  // contact
+  ownerName        String  @map("owner_name")
+  ownerEmail       String  @map("owner_email")
+  ownerPhone       String  @map("owner_phone")
+  authorizedPerson String? @map("authorized_person")
+  website          String?
+
+  // address
+  addressLine1 String  @map("address_line1")
+  addressLine2 String? @map("address_line2")
+  city         String
+  state        String
+  pincode      String
+  country      String  @default("IN")
+
+  // registration details (optional, free-text; NOT verified claims)
+  registrationType String? @map("registration_type")
+  registrationNo   String? @map("registration_no")
+
+  // branding
+  logoFileId   String? @map("logo_file_id") @db.Char(26)
+  primaryColor String? @default("#0F172A") @map("primary_color")
+  tagline      String? // shown under the institute name/logo on certificates
+  // 2026-10-04: certificate template fields (MJ reference design).
+  // motto appears in the contact bar ("Learn Today | Grow Tomorrow"),
+  // establishedYear on the gold seal ("ESTD. 2020"), campusPhotoFileId is
+  // the building photo on the left panel.
+  motto              String? @map("motto")
+  establishedYear    Int?    @map("established_year")
+  campusPhotoFileId  String? @map("campus_photo_file_id") @db.Char(26)
+  // "Authority" signature on generated certificates — authorizedPerson
+  // above already carries the name; this is that person's signature
+  // image. Centre Head's own signature lives on Centre (headSignatureFileId)
+  // since a multi-centre institute has one Centre Head per centre.
+  authoritySignatureFileId String? @map("authority_signature_file_id") @db.Char(26)
+
+  // 2026-10-04: 10-template system. activeTemplateId selects the design
+  // used for all new certificate downloads. "classic-simple" is the free
+  // template; premium templates must be unlocked (TenantTemplateUnlock)
+  // before they can be selected.
+  activeTemplateId String @default("classic-simple") @map("active_template_id")
+
+  // lifecycle
+  termsAcceptedAt DateTime  @map("terms_accepted_at") @db.Timestamptz
+  termsVersion    String    @map("terms_version")
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz
+  approvedBy      String?   @map("approved_by") @db.Char(26)
+  rejectedReason  String?   @map("rejected_reason")
+  suspendedReason String?   @map("suspended_reason")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+
+  memberships   Membership[]
+  subscription  TenantSubscription?
+  logoFile      FileObject?         @relation("TenantLogoFile", fields: [logoFileId], references: [id], onDelete: NoAction)
+  authoritySignatureFile FileObject? @relation("TenantAuthoritySignatureFile", fields: [authoritySignatureFileId], references: [id], onDelete: NoAction)
+  campusPhotoFile FileObject? @relation("TenantCampusPhotoFile", fields: [campusPhotoFileId], references: [id], onDelete: NoAction)
+
+  centres       Centre[]
+  students      Student[]
+  courses       Course[]
+  batches       Batch[]
+  enrollments   Enrollment[]
+  invitations   Invitation[]
+  certificates  Certificate[]
+  files         FileObject[]        @relation("TenantScopedFile")
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  usageCounters UsageCounter[]
+  templateUnlocks TenantTemplateUnlock[]
+
+  @@index([status, createdAt])
+  @@map("tenant")
+}
+
+// 2026-10-04: premium certificate template unlocks. One row per
+// (tenant, template) — a successful one-time payment creates it and the
+// template stays unlocked for the institute forever. The free template
+// ("classic-simple") never needs a row.
+model TenantTemplateUnlock {
+  id         String   @id @db.Char(26)
+  tenantId   String   @map("tenant_id") @db.Char(26)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId String   @map("template_id")
+  unlockedAt DateTime @default(now()) @map("unlocked_at") @db.Timestamptz
+  paymentRef String?  @map("payment_ref")
+
+  @@unique([tenantId, templateId])
+  @@map("tenant_template_unlock")
+}
+
+// 2026-10-04: visit tracking + lead follow-ups. SiteVisit is anonymous
+// analytics (super admin dashboard). Lead is a captured contact from the
+// landing page; FollowUpTemplate defines the automated message sequence
+// (super-admin editable); FollowUpLog records each sent message.
+model SiteVisit {
+  id        String   @id @db.Char(26)
+  path      String
+  ipHash    String?  @map("ip_hash")
+  userAgent String?  @map("user_agent")
+  referrer  String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@map("site_visit")
+}
+
+model Lead {
+  id            String   @id @db.Char(26)
+  name          String
+  email         String?
+  phone         String?
+  instituteName String?  @map("institute_name")
+  message       String?
+  source        String   @default("landing")
+  status        String   @default("NEW")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  followUps FollowUpLog[]
+
+  @@index([status, createdAt])
+  @@map("lead")
+}
+
+model FollowUpTemplate {
+  id        String   @id @db.Char(26)
+  name      String
+  subject   String
+  body      String
+  delayDays Int      @map("delay_days")
+  channel   String   @default("email")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  followUps FollowUpLog[]
+
+  @@map("follow_up_template")
+}
+
+model FollowUpLog {
+  id         String           @id @db.Char(26)
+  leadId     String           @map("lead_id") @db.Char(26)
+  lead       Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  templateId String           @map("template_id") @db.Char(26)
+  template   FollowUpTemplate @relation(fields: [templateId], references: [id])
+  channel    String
+  status     String           @default("PENDING")
+  sentAt     DateTime?        @map("sent_at") @db.Timestamptz
+  error      String?
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([status, createdAt])
+  @@map("follow_up_log")
+}
+
+// 2026-10-04: super-admin password reset tokens. Token is stored as a
+// SHA-256 hash (never plaintext); single-use; expires in 1 hour.
+model PasswordResetToken {
+  id        String   @id @db.Char(26)
+  userId    String   @map("user_id") @db.Char(26)
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId])
+  @@map("password_reset_token")
+}
+
+// 2026-10-04: swappable infrastructure/provider settings. Key-value store
+// editable from super admin — e.g. deploy provider, tunnel provider — so
+// a provider change tomorrow (Cloudflare -> something else) is a settings
+// edit, not a code deploy.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("app_setting")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  LOCKED
+
+  @@map("user_status")
+}
+
+model User {
+  id              String     @id @db.Char(26)
+  email           String     @unique
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz
+  phone           String?
+  phoneVerifiedAt DateTime?  @map("phone_verified_at") @db.Timestamptz
+  name            String
+  passwordHash    String?    @map("password_hash")
+  isSuperAdmin    Boolean    @default(false) @map("is_super_admin")
+  mfaEnabled      Boolean    @default(false) @map("mfa_enabled")
+  mfaSecret       String?    @map("mfa_secret")
+  status          UserStatus @default(ACTIVE)
+  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz
+
+  memberships Membership[]
+  students    Student[]    @relation("StudentUser")
+
+  @@map("user_account")
+}
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  STAFF
+  STUDENT
+
+  @@map("tenant_role")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+
+  @@map("membership_status")
+}
+
+// Membership has a `tenantId` column (Section 6.2 rule 1 would normally
+// mean "give it an RLS policy") but is deliberately NOT RLS-scoped, and
+// stays classified as a Section 7.1 platform table. Reason: Section 6.4
+// requires reading a user's memberships ACROSS tenants at login, before
+// any tenant is selected ("if a user has multiple memberships, present a
+// tenant picker") — that query has no app.tenant_id to set yet, so an
+// RLS policy keyed on it would return zero rows and break login for any
+// multi-tenant user. Access is guarded at the application layer instead
+// (own-userId lookups are always allowed; a tenant's OWNER/ADMIN listing
+// their own staff goes through guard() + an explicit tenantId filter).
+// tests/rls-coverage.test.ts encodes this as a named, commented exception
+// — not a silent gap in the coverage check.
+model Membership {
+  id         String           @id @db.Char(26)
+  userId     String           @map("user_id") @db.Char(26)
+  tenantId   String           @map("tenant_id") @db.Char(26)
+  role       TenantRole
+  centreIds  String[]         @map("centre_ids") // empty = all centres (OWNER/ADMIN)
+  status     MembershipStatus @default(ACTIVE)
+  invitedBy  String?          @map("invited_by") @db.Char(26)
+  acceptedAt DateTime?        @map("accepted_at") @db.Timestamptz
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt  DateTime?        @map("deleted_at") @db.Timestamptz
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, role])
+  @@map("membership")
+}
+
+model SubscriptionPlan {
+  id            String        @id @db.Char(26)
+  code          String        @unique // FREE, STARTER, PROFESSIONAL, INSTITUTION
+  name          String
+  sortOrder     Int           @map("sort_order")
+  isActive      Boolean       @default(true) @map("is_active")
+  limits        Json // see spec 7.4
+  features      Json // feature flags
+  priceMinor    Int?          @map("price_minor") // paise; null = contact sales
+  currency      String        @default("INR")
+  billingPeriod BillingPeriod @default(MONTHLY) @map("billing_period")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  subscriptions TenantSubscription[]
+
+  @@map("subscription_plan")
+}
+
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
+
+  @@map("billing_period")
+}
+
+model PlatformAuditLog {
+  id         String   @id @db.Char(26)
+  actorId    String?  @map("actor_id") @db.Char(26)
+  action     String
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id") @db.Char(26)
+  metadata   Json
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([createdAt])
+  @@map("platform_audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// 7.2 Tenant-scoped tables — every one of these gets RLS in the migration in
+// prisma/migrations/*_roles_and_rls/migration.sql. See Section 6.2.
+// ---------------------------------------------------------------------------
+
+enum RecordStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("record_status")
+}
+
+model Centre {
+  id           String       @id @db.Char(26)
+  tenantId     String       @map("tenant_id") @db.Char(26)
+  name         String
+  code         String // short code, unique per tenant
+  addressLine1 String?      @map("address_line1")
+  city         String?
+  state        String?
+  pincode      String?
+  phone        String?
+  headName     String?      @map("head_name") // "Centre Head" — used by credentials later
+  headSignatureFileId String? @map("head_signature_file_id") @db.Char(26)
+  isPrimary    Boolean      @default(false) @map("is_primary")
+  status       RecordStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  headSignatureFile FileObject? @relation("CentreHeadSignatureFile", fields: [headSignatureFileId], references: [id], onDelete: NoAction)
+  batches  Batch[]
+  students Student[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("centre")
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+  DROPPED
+
+  @@map("student_status")
+}
+
+model Student {
+  id           String        @id @db.Char(26)
+  tenantId     String        @map("tenant_id") @db.Char(26)
+  centreId     String        @map("centre_id") @db.Char(26)
+  userId       String?       @map("user_id") @db.Char(26) // set when student activates account
+  studentCode  String        @map("student_code") // human-readable, unique per tenant
+  fullName     String        @map("full_name")
+  email        String?
+  phone        String?
+  dateOfBirth  DateTime?     @map("date_of_birth") @db.Timestamptz
+  gender       String?
+  guardianName String?       @map("guardian_name")
+  addressLine1 String?       @map("address_line1")
+  city         String?
+  state        String?
+  pincode      String?
+  photoFileId  String?       @map("photo_file_id") @db.Char(26)
+  status       StudentStatus @default(ACTIVE)
+  notes        String?
+
+  // Registration fee — collected (manually, admin-marked) at registration
+  // time. Integer paise per the frozen money contract (Section 4). No
+  // gateway wired up yet — see README for the manual-payment flow this
+  // drives.
+  registrationFeePaise  Int?      @map("registration_fee_paise")
+  registrationFeePaid   Boolean   @default(false) @map("registration_fee_paid")
+  registrationFeePaidAt DateTime? @map("registration_fee_paid_at") @db.Timestamptz
+
+  createdBy    String        @map("created_by") @db.Char(26)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz
+  deletedBy    String?       @map("deleted_by") @db.Char(26)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  centre       Centre        @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  user         User?         @relation("StudentUser", fields: [userId], references: [id], onDelete: NoAction)
+  enrollments  Enrollment[]
+  certificates Certificate[]
+
+  @@unique([tenantId, studentCode])
+  @@unique([tenantId, email])
+  @@index([tenantId, centreId, status])
+  @@index([tenantId, fullName])
+  @@map("student")
+}
+
+enum DurationUnit {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+  HOUR
+
+  @@map("duration_unit")
+}
+
+model Course {
+  id            String        @id @db.Char(26)
+  tenantId      String        @map("tenant_id") @db.Char(26)
+  code          String
+  title         String
+  description   String?
+  durationValue Int?          @map("duration_value")
+  durationUnit  DurationUnit? @map("duration_unit")
+  centreIds     String[]      @map("centre_ids") // empty = all centres
+  status        RecordStatus  @default(ACTIVE)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  batches     Batch[]
+  enrollments Enrollment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("course")
+}
+
+model Batch {
+  id        String       @id @db.Char(26)
+  tenantId  String       @map("tenant_id") @db.Char(26)
+  courseId  String       @map("course_id") @db.Char(26)
+  centreId  String       @map("centre_id") @db.Char(26)
+  name      String
+  startDate DateTime?    @map("start_date") @db.Timestamptz
+  endDate   DateTime?    @map("end_date") @db.Timestamptz
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt DateTime?    @map("deleted_at") @db.Timestamptz
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  centre      Centre       @relation(fields: [centreId], references: [id], onDelete: Restrict)
+  enrollments Enrollment[]
+
+  @@index([tenantId, courseId])
+  @@map("batch")
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  WITHDRAWN
+
+  @@map("enrollment_status")
+}
+
+model Enrollment {
+  id          String           @id @db.Char(26)
+  tenantId    String           @map("tenant_id") @db.Char(26)
+  studentId   String           @map("student_id") @db.Char(26)
+  courseId    String           @map("course_id") @db.Char(26)
+  batchId     String?          @map("batch_id") @db.Char(26)
+  enrolledAt  DateTime         @default(now()) @map("enrolled_at") @db.Timestamptz
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz
+  grade       String? // free text; credentials will read this
+  status      EnrollmentStatus @default(ACTIVE)
+  createdBy   String           @map("created_by") @db.Char(26)
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: NoAction)
+
+  // QA audit finding B3: a plain `@@unique([tenantId, studentId, courseId,
+  // batchId])` does NOT stop duplicate enrollments when batchId is NULL —
+  // Postgres treats every NULL as distinct from every other NULL for
+  // uniqueness, so two un-batched enrollments in the same course would
+  // both pass it (verified against a local Postgres instance before this
+  // was fixed). Prisma's schema DSL has no partial (`WHERE`-qualified)
+  // unique index, so the real constraint lives ONLY in
+  // prisma/migrations/20260911100000_enrollment_null_batch_uniqueness —
+  // two partial unique indexes instead of one plain one. This is
+  // deliberate, accepted schema/migration drift: do not add a
+  // `@@unique([tenantId, studentId, courseId, batchId])` line back here,
+  // and do not let `prisma migrate dev` regenerate a migration that drops
+  // those partial indexes to "fix" the (correct, intentional) drift.
+  @@index([tenantId, studentId, courseId, batchId])
+  @@index([tenantId, courseId, status])
+  @@map("enrollment")
+}
+
+model Invitation {
+  id         String     @id @db.Char(26)
+  tenantId   String     @map("tenant_id") @db.Char(26)
+  email      String
+  role       TenantRole
+  centreIds  String[]   @map("centre_ids")
+  studentId  String?    @map("student_id") @db.Char(26) // set for student invites
+  tokenHash  String     @unique @map("token_hash") // SHA-256 of the token; never store raw
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz
+  acceptedAt DateTime?  @map("accepted_at") @db.Timestamptz
+  revokedAt  DateTime?  @map("revoked_at") @db.Timestamptz
+  createdBy  String     @map("created_by") @db.Char(26)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, email])
+  @@map("invitation")
+}
+
+enum FilePurpose {
+  TENANT_LOGO
+  STUDENT_PHOTO
+  REGISTRATION_DOC
+  SIGNATURE
+  SEAL
+  IMPORT_CSV
+
+  @@map("file_purpose")
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  INFECTED
+  FAILED
+
+  @@map("scan_status")
+}
+
+model FileObject {
+  id           String     @id @db.Char(26)
+  tenantId     String?    @map("tenant_id") @db.Char(26) // null for platform-level files
+  key          String     @unique // storage key
+  originalName String     @map("original_name")
+  mimeType     String     @map("mime_type")
+  sizeBytes    Int        @map("size_bytes")
+  checksum     String // SHA-256
+  purpose      FilePurpose
+  scanStatus   ScanStatus @default(PENDING) @map("scan_status")
+  uploadedBy   String     @map("uploaded_by") @db.Char(26)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz
+
+  tenant        Tenant?  @relation("TenantScopedFile", fields: [tenantId], references: [id], onDelete: NoAction)
+  tenantLogoFor Tenant[] @relation("TenantLogoFile")
+  tenantAuthoritySignatureFor Tenant[] @relation("TenantAuthoritySignatureFile")
+  tenantCampusPhotoFor Tenant[] @relation("TenantCampusPhotoFile")
+  centreHeadSignatureFor      Centre[] @relation("CentreHeadSignatureFile")
+
+  @@map("file_object")
+}
+
+model AuditLog {
+  id         String   @id @db.Char(26)
+  tenantId   String   @map("tenant_id") @db.Char(26)
+  actorId    String?  @map("actor_id") @db.Char(26)
+  actorRole  String?  @map("actor_role")
+  action     String // "student.create", "staff.role_change"
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id") @db.Char(26)
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, targetType, targetId])
+  @@map("audit_log")
+}
+
+model Notification {
+  id        String    @id @db.Char(26)
+  tenantId  String    @map("tenant_id") @db.Char(26)
+  userId    String    @map("user_id") @db.Char(26)
+  type      String
+  title     String
+  body      String
+  linkUrl   String?   @map("link_url")
+  readAt    DateTime? @map("read_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, userId, readAt])
+  @@map("notification")
+}
+
+model UsageCounter {
+  id        String   @id @db.Char(26)
+  tenantId  String   @map("tenant_id") @db.Char(26)
+  metric    String // "students.active", "credentials.issued"
+  period    String // "2026-09" or "ALL"
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, metric, period])
+  @@map("usage_counter")
+}
+
+enum SubStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIAL
+
+  @@map("sub_status")
+}
+
+model TenantSubscription {
+  id               String    @id @db.Char(26)
+  tenantId         String    @unique @map("tenant_id") @db.Char(26)
+  planId           String    @map("plan_id") @db.Char(26)
+  status           SubStatus @default(ACTIVE)
+  startedAt        DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  currentPeriodEnd DateTime? @map("current_period_end") @db.Timestamptz
+  overrides        Json? // per-tenant limit overrides
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@map("tenant_subscription")
+}
+
+// ---------------------------------------------------------------------------
+// 7.3 Certificate — brought forward from "Phase 2" by explicit user request
+// (see the SCOPE CHANGE note at the top of this file). Deliberately NOT the
+// full template engine the original spec sketched (no CertificateTemplate,
+// CertificateField, SignatoryProfile, per-tenant layout editor) — those are
+// still deferred. This is the minimal shape needed for "admin registers a
+// student → a certificate exists with a unique code → the student can
+// download it as a PDF → anyone can verify the code publicly":
+//
+//   - `code` is the frozen credential-code contract (Section 4):
+//     <TENANT_PREFIX>-<YEAR>-<RANDOM10>, immutable once issued.
+//   - The public verification page (`/v/{code}`) must NEVER expose Student's
+//     PII (email, phone, address, DOB, photo, guardian name) — Section 11.
+//     Rather than trust every future query to remember that filter, the
+//     safe-to-show fields are SNAPSHOT onto Certificate itself at issuance
+//     time (studentNameSnapshot / instituteNameSnapshot / courseNameSnapshot
+//     / completionDate), and the verification page reads ONLY those columns,
+//     through a dedicated Postgres view (`certificate_public`, migration
+//     20260910_certificate) that a public request can query without ever
+//     touching the `student` table or needing app.tenant_id set. See that
+//     migration's comment for exactly how the view stays safe under RLS.
+model Certificate {
+  id        String   @id @db.Char(26)
+  tenantId  String   @map("tenant_id") @db.Char(26)
+  studentId String   @map("student_id") @db.Char(26)
+
+  code   String             @unique // <TENANT_PREFIX>-<YEAR>-<RANDOM10>, frozen once issued
+  status CertificateStatus  @default(ACTIVE)
+
+  // Snapshot at issuance — the ONLY fields the public verification view may
+  // read. Never re-derive these from a live join against `student`/`tenant`;
+  // that would defeat the point of snapshotting them.
+  studentNameSnapshot   String    @map("student_name_snapshot")
+  instituteNameSnapshot String    @map("institute_name_snapshot")
+  courseNameSnapshot    String    @map("course_name_snapshot")
+  completionDate        DateTime? @map("completion_date") @db.Timestamptz
+  // 2026-10-04: printed on the certificate (MODE / GRADE row of the
+  // template). Snapshotted like the other display fields.
+  grade String? @map("grade")
+  mode  String? @map("mode")
+
+  issuedAt      DateTime  @default(now()) @map("issued_at") @db.Timestamptz
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz
+  revokedReason String?   @map("revoked_reason")
+
+  // 2026-10-04: download gating — every certificate gets
+  // FREE_DOWNLOADS_PER_PAYMENT free downloads
+  // (src/config/certificate.ts); after those are used up, each further
+  // download costs the ₹299 platform fee (PLATFORM_REDOWNLOAD_FEE_PAISE).
+  // Incremented by student/(protected)/portal/certificate/route.ts on
+  // each successful download.
+  downloadCount Int @default(0) @map("download_count")
+
+  // 2026-10-04: platform re-download fee — ₹299
+  // (PLATFORM_REDOWNLOAD_FEE_PAISE, src/config/certificate.ts), the
+  // platform's own revenue per the user's explicit instruction. After the
+  // free download allowance is exhausted, the student pays this for a
+  // fresh allowance — one payment unlocks exactly one download.
+  platformFeePaid   Boolean   @default(false) @map("platform_fee_paid")
+  platformFeePaidAt DateTime? @map("platform_fee_paid_at") @db.Timestamptz
+
+  // 2026-10-04: opt-in public directory. When true, this certificate
+  // appears in the searchable public directory (/directory) with only the
+  // safe snapshot columns. Defaults to false (opt-in, not opt-out).
+  directoryOptIn Boolean @default(false) @map("directory_opt_in")
+
+  pdfFileId String? @map("pdf_file_id") @db.Char(26)
+
+  createdBy String   @map("created_by") @db.Char(26)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, studentId])
+  @@map("certificate")
+}
+
+enum CertificateStatus {
+  ACTIVE
+  REVOKED
+
+  @@map("certificate_status")
+}
+
+// Deferred, still not modelled: CertificateTemplate, CertificateField,
+// CertificateRevocation (as its own audit table — revocation is inline on
+// Certificate for now), SignatoryProfile. Bring these in when per-tenant
+// certificate layouts / multi-signatory workflows are actually needed.

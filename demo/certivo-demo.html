@@ -1,0 +1,2997 @@
+<title>Certivo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap">
+<style>
+  /* ---------------------------------------------------------------------
+     Tokens — mirrors the real app's Tailwind theme (src/app/globals.css)
+     so this demo and the eventual deployed app read as the same product.
+     --------------------------------------------------------------------- */
+  :root {
+    --bg: #ffffff;
+    --bg-subtle: #f8fafc;
+    --bg-raised: #ffffff;
+    --border: #e2e8f0;
+    --border-soft: #f1f5f9;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+    --brand: #6366f1;
+    --brand-strong: #4f46e5;
+    --brand-soft: #eef2ff;
+    --success: #16a34a;
+    --success-soft: #f0fdf4;
+    --warning: #d97706;
+    --warning-soft: #fffbeb;
+    --danger: #dc2626;
+    --danger-soft: #fef2f2;
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+    color-scheme: light;
+  }
+  /* F1: dark mode was previously removed here because nothing in the real
+     app added a `.dark` class deliberately — its `dark:` utility classes
+     were silently following the OS theme instead (see globals.css's own
+     comment). The real fix there was a genuine, deliberate toggle, not
+     "remove dark mode" — so that's what this demo now has too: a real
+     toggle button (topbar) that adds `.dark` to <html>, with no CSS
+     anywhere reacting to prefers-color-scheme on its own. */
+  html.dark {
+    --bg: #020617;
+    --bg-subtle: #0f172a;
+    --bg-raised: #0b1220;
+    --border: #1e293b;
+    --border-soft: #172033;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-faint: #64748b;
+    --brand: #818cf8;
+    --brand-strong: #a5b4fc;
+    --brand-soft: #1e1b4b;
+    --success: #4ade80;
+    --success-soft: #052e16;
+    --warning: #fbbf24;
+    --warning-soft: #451a03;
+    --danger: #f87171;
+    --danger-soft: #450a0a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+  .theme-toggle {
+    width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(2, 6, 23, 0.55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal-box {
+    width: 100%; max-width: 520px;
+    max-height: min(85vh, 640px);
+    display: flex; flex-direction: column;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono, .mono * { font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  p { margin: 0; }
+  a { color: inherit; }
+  ::selection { background: var(--brand-soft); }
+
+  /* ---- App shell ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding: 12px clamp(16px, 4vw, 32px);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-mark { display: flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.01em; cursor: pointer; background: none; border: none; color: var(--text); font-size: 15px; padding: 0; }
+  .brand-mark .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .demo-chip {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px;
+    background: var(--warning-soft); color: var(--warning);
+    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  }
+  .who-chip {
+    font-size: 12px; color: var(--text-muted);
+    padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  main { min-height: calc(100vh - 53px); }
+  .screen { display: none; }
+  .screen.active { display: block; animation: fade-in 0.25s ease-out both; }
+  @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .screen.active { animation: none; } }
+
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px); }
+  .wrap-narrow { max-width: 480px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px); }
+  .wrap-med { max-width: 720px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px); }
+
+  /* ---- Cards / surfaces ---- */
+  .card {
+    background: var(--bg-raised); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .card-pad { padding: 24px; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 560px) { .field-grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.span-2 { grid-column: 1 / -1; }
+  label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+  input, select {
+    height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); padding: 0 12px; font-size: 14px; font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus, button:focus-visible, a:focus-visible {
+    outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft);
+  }
+  input::placeholder { color: var(--text-faint); }
+
+  /* ---- Buttons ---- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 40px; padding: 0 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+    border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+    font-family: inherit; transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .btn-primary { background: var(--brand); color: white; }
+  .btn-primary:hover { background: var(--brand-strong); }
+  .btn-outline { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn-outline:hover { background: var(--bg-subtle); }
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover { color: var(--text); background: var(--bg-subtle); }
+  .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- Badges ---- */
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+  .badge-success { color: var(--success); background: var(--success-soft); }
+  .badge-warning { color: var(--warning); background: var(--warning-soft); }
+  .badge-danger { color: var(--danger); background: var(--danger-soft); }
+  .badge-neutral { color: var(--text-muted); background: var(--bg-subtle); border: 1px solid var(--border); }
+
+  .alert { border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+  .alert-danger { background: var(--danger-soft); color: var(--danger); }
+  .alert-success { background: var(--success-soft); color: var(--success); }
+
+  /* ---- Landing page pieces ---- */
+  .hero { position: relative; overflow: hidden; padding: 56px 0 64px; }
+  .blob { position: absolute; border-radius: 999px; filter: blur(56px); pointer-events: none; opacity: 0.35; }
+  .blob-a { width: 280px; height: 280px; left: -80px; top: -60px; background: var(--brand); animation: drift 16s ease-in-out infinite; }
+  .blob-b { width: 320px; height: 320px; right: -100px; top: 20px; background: var(--brand-strong); animation: drift 18s ease-in-out infinite reverse; opacity: 0.22; }
+  @keyframes drift { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(4%, -3%) scale(1.06); } }
+  .float-icon { position: absolute; color: var(--brand); opacity: 0.55; animation: float 7s ease-in-out infinite; }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+  @media (prefers-reduced-motion: reduce) { .blob, .float-icon { animation: none; } }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted);
+    margin-bottom: 18px;
+  }
+  .h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.08; }
+  .tagline { font-size: 17px; font-weight: 600; color: var(--brand); margin-top: 8px; }
+  .lede { max-width: 540px; margin: 16px auto 0; color: var(--text-muted); font-size: 15.5px; line-height: 1.6; }
+
+  .trust-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 36px 0; }
+  @media (max-width: 640px) { .trust-strip { grid-template-columns: 1fr; } }
+  .trust-card { text-align: center; padding: 22px 18px; }
+  .trust-card svg { color: var(--brand); }
+  .trust-card h3 { margin: 10px 0 4px; font-size: 15px; }
+  .trust-card p { color: var(--text-muted); font-size: 13.5px; }
+
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 48px 0; }
+  @media (max-width: 780px) { .steps { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .steps { grid-template-columns: 1fr; } }
+  .step-num { width: 28px; height: 28px; border-radius: 999px; background: var(--text); color: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; }
+  .step h4 { font-size: 14.5px; margin: 10px 0 4px; }
+  .step p { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  /* ---- Certificate visual (mirrors generate-pdf.ts layout) ---- */
+  .cert-frame {
+    border: 2px solid var(--brand); border-radius: 4px; padding: 6px; background: var(--bg-raised);
+  }
+  .cert-inner {
+    border: 1px solid var(--border); border-radius: 2px; padding: clamp(20px, 5vw, 40px) 24px;
+    text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center;
+  }
+  .cert-institute { color: var(--brand); font-weight: 700; font-size: 13px; letter-spacing: 0.06em; }
+  .cert-title { font-size: clamp(20px, 4vw, 26px); font-weight: 700; letter-spacing: -0.01em; margin-top: 4px; }
+  .cert-sub { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+  .cert-name { font-size: clamp(20px, 4vw, 26px); font-weight: 700; margin-top: 2px; }
+  .cert-course { font-weight: 700; font-size: 16px; margin-top: 4px; }
+  .cert-date { color: var(--text-muted); font-size: 12.5px; }
+  .cert-code { margin-top: 14px; font-weight: 700; font-size: 13px; }
+  .cert-verify { color: var(--text-muted); font-size: 11.5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-weight: 500; color: var(--text-muted); font-size: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--border-soft); }
+  tr:last-child td { border-bottom: none; }
+
+  .kv { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .kv dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); }
+  .kv dd { margin: 0; font-size: 14px; }
+
+  footer.site-footer { text-align: center; padding: 32px 16px 40px; color: var(--text-faint); font-size: 12.5px; border-top: 1px solid var(--border); margin-top: 24px; }
+</style>
+
+<div class="topbar">
+  <button class="brand-mark" onclick="nav('/')"><span class="dot"></span>Certivo</button>
+  <div class="topbar-right">
+    <span class="demo-chip">Demo · sample data</span>
+    <button class="btn btn-outline btn-sm" onclick="showWhatsNew()" style="color:var(--success);border-color:color-mix(in srgb, var(--success) 40%, var(--border));">✨ What's fixed</button>
+    <span class="who-chip" id="whoChip" hidden></span>
+    <button class="btn btn-ghost btn-sm theme-toggle" id="themeToggleBtn" onclick="toggleDarkMode()" title="Switch to dark mode" aria-label="Switch to dark mode"></button>
+    <button class="btn btn-ghost btn-sm" onclick="nav('/super-admin/login')" title="Super Admin" aria-label="Super Admin" style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 2 3 6v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V6l-9-4Z"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 16.2c.6-1.8 2-2.7 3.5-2.7s2.9.9 3.5 2.7"/></svg>
+    </button>
+    <button class="btn btn-ghost btn-sm" onclick="resetDemo()">Reset demo</button>
+  </div>
+</div>
+
+<main id="app"></main>
+
+<div id="whatsNewOverlay" class="modal-overlay" hidden onclick="if(event.target===this) hideWhatsNew()">
+  <div class="modal-box card" role="dialog" aria-modal="true" aria-labelledby="whatsNewTitle">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0;">
+      <h2 id="whatsNewTitle" style="font-size:17px;">✨ What's fixed in this update</h2>
+      <button class="btn btn-ghost btn-sm" onclick="hideWhatsNew()" aria-label="Close" style="width:30px;height:30px;padding:0;">✕</button>
+    </div>
+    <div style="padding:14px 20px 22px;overflow-y:auto;max-height:min(70vh, 560px);">
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:14px;line-height:1.6;">
+        This demo now reflects the fixes from the full QA audit of the real app (<span class="mono">src/</span>) — every MEDIUM/LOW finding, on top of the CRITICAL/HIGH round already applied. Payment-gateway items were out of scope throughout, per the original ask.
+      </p>
+      <div id="whatsNewSections"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showWhatsNew() {
+  const target = document.getElementById("whatsNewSections");
+  if (target && !target.dataset.filled) {
+    target.innerHTML =
+      whatsNewSection("Naming & consistency", [
+        "One consistent pair of labels everywhere: “Student sign in” / “Institute admin sign in” (nav, hero, cross-links, headings) — five different labels used to describe the same two destinations.",
+        "“View my certificate” used to link straight to a login form — reworded to match what it actually does.",
+        "“Certificate Verification” unified to “Certificate verification” as the one name for the verify feature, everywhere it's mentioned.",
+      ]) +
+      whatsNewSection("Bugs fixed", [
+        "Sample certificate/student codes used characters the real code generator can never produce (Crockford Base32 excludes I/L/O/U) — both replaced with codes built only from valid characters.",
+        "Fee amounts and dates are now validated before a student is created — a bad number or a future date is rejected with a clear message instead of silently going through.",
+      ]) +
+      whatsNewSection("New / improved", [
+        "Students list now has real page-based pagination (25/page) instead of just an unlimited scroll.",
+        "Completion date shows “Defaults to today if left blank” instead of silently defaulting with no indication.",
+        "Forgot-password screens (student and admin) now have a real, working contact link instead of a dead end.",
+        "Email fields validate the same way the browser and the real server both would (a pattern match, not just type=\"email\").",
+        "Date-of-birth and completion-date pickers won't offer a future date at all.",
+        "A real light/dark theme toggle — top-right of this bar — instead of no theme control.",
+      ]);
+    target.dataset.filled = "1";
+  }
+  document.getElementById("whatsNewOverlay").hidden = false;
+}
+function hideWhatsNew() { document.getElementById("whatsNewOverlay").hidden = true; }
+function whatsNewSection(title, items) {
+  return `<div style="margin-bottom:16px;">
+    <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);margin-bottom:8px;">${title}</h3>
+    <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px;">
+      ${items.map((t) => `<li style="font-size:13.5px;line-height:1.5;">${t}</li>`).join("")}
+    </ul>
+  </div>`;
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script>
+/* =========================================================================
+   Dependency-free QR Code encoder (byte mode only) — plain-JS port of
+   src/lib/qrcode.ts (no module system in this demo, so it's inlined
+   as-is). Logic is byte-for-byte identical to the TypeScript source: only
+   type annotations, `interface` declarations, `private`/`export`
+   keywords and generic type parameters were removed — every table,
+   formula and code path is unchanged. See qrcode.ts's own header comment
+   for provenance (a faithful port of Kazuhiko Arase's MIT-licensed
+   "QRCode for JavaScript") and how it was independently verified (OpenCV
+   decode + a from-scratch RS-consistency decoder across 63 cases spanning
+   every EC level/version/mask pattern).
+   ========================================================================= */
+const FORMAT_INFO_BITS = { M: 0, L: 1, H: 2, Q: 3 };
+const RS_BLOCK_ROW_OFFSET = { L: 0, M: 1, Q: 2, H: 3 };
+
+const EXP_TABLE = new Array(256);
+const LOG_TABLE = new Array(256);
+for (let i = 0; i < 8; i++) EXP_TABLE[i] = 1 << i;
+for (let i = 8; i < 256; i++) {
+  EXP_TABLE[i] = EXP_TABLE[i - 4] ^ EXP_TABLE[i - 5] ^ EXP_TABLE[i - 6] ^ EXP_TABLE[i - 8];
+}
+for (let i = 0; i < 255; i++) LOG_TABLE[EXP_TABLE[i]] = i;
+
+function qrGlog(n) {
+  if (n < 1) throw new Error(`glog(${n})`);
+  return LOG_TABLE[n];
+}
+function qrGexp(n) {
+  while (n < 0) n += 255;
+  while (n >= 256) n -= 255;
+  return EXP_TABLE[n];
+}
+
+class QrPolynomial {
+  constructor(num, shift) {
+    let offset = 0;
+    while (offset < num.length && num[offset] === 0) offset++;
+    this.num = new Array(num.length - offset + shift).fill(0);
+    for (let i = 0; i < num.length - offset; i++) this.num[i] = num[i + offset];
+  }
+  get(index) {
+    return this.num[index];
+  }
+  getLength() {
+    return this.num.length;
+  }
+  multiply(e) {
+    const num = new Array(this.getLength() + e.getLength() - 1).fill(0);
+    for (let i = 0; i < this.getLength(); i++) {
+      for (let j = 0; j < e.getLength(); j++) {
+        num[i + j] ^= qrGexp(qrGlog(this.get(i)) + qrGlog(e.get(j)));
+      }
+    }
+    return new QrPolynomial(num, 0);
+  }
+  mod(e) {
+    if (this.getLength() - e.getLength() < 0) return this;
+    const ratio = qrGlog(this.get(0)) - qrGlog(e.get(0));
+    const num = new Array(this.getLength()).fill(0);
+    for (let i = 0; i < this.getLength(); i++) num[i] = this.get(i);
+    for (let x = 0; x < e.getLength(); x++) num[x] ^= qrGexp(qrGlog(e.get(x)) + ratio);
+    return new QrPolynomial(num, 0).mod(e);
+  }
+}
+
+function getErrorCorrectPolynomial(errorCorrectLength) {
+  let a = new QrPolynomial([1], 0);
+  for (let i = 0; i < errorCorrectLength; i++) {
+    a = a.multiply(new QrPolynomial([1, qrGexp(i)], 0));
+  }
+  return a;
+}
+
+class QrBitBuffer {
+  constructor() {
+    this.buffer = [];
+    this.length = 0;
+  }
+  get(index) {
+    const bufIndex = Math.floor(index / 8);
+    return ((this.buffer[bufIndex] >>> (7 - (index % 8))) & 1) === 1;
+  }
+  put(num, length) {
+    for (let i = 0; i < length; i++) {
+      this.putBit(((num >>> (length - i - 1)) & 1) === 1);
+    }
+  }
+  getLengthInBits() {
+    return this.length;
+  }
+  putBit(bit) {
+    const bufIndex = Math.floor(this.length / 8);
+    if (this.buffer.length <= bufIndex) this.buffer.push(0);
+    if (bit) this.buffer[bufIndex] |= 0x80 >>> this.length % 8;
+    this.length++;
+  }
+}
+
+// Each row: [count, totalCount, dataCount, count2?, totalCount2?, dataCount2?]
+const RS_BLOCK_TABLE = [
+  [1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9],
+  [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16],
+  [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13],
+  [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9],
+  [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12],
+  [2, 86, 68], [4, 43, 27], [4, 43, 19], [4, 43, 15],
+  [2, 98, 78], [4, 49, 31], [2, 32, 14, 4, 33, 15], [4, 39, 13, 1, 40, 14],
+  [2, 121, 97], [2, 60, 38, 2, 61, 39], [4, 40, 18, 2, 41, 19], [4, 40, 14, 2, 41, 15],
+  [2, 146, 116], [3, 58, 36, 2, 59, 37], [4, 36, 16, 4, 37, 17], [4, 36, 12, 4, 37, 13],
+  [2, 86, 68, 2, 87, 69], [4, 69, 43, 1, 70, 44], [6, 43, 19, 2, 44, 20], [6, 43, 15, 2, 44, 16],
+  [4, 101, 81], [1, 80, 50, 4, 81, 51], [4, 50, 22, 4, 51, 23], [3, 36, 12, 8, 37, 13],
+  [2, 116, 92, 2, 117, 93], [6, 58, 36, 2, 59, 37], [4, 46, 20, 6, 47, 21], [7, 42, 14, 4, 43, 15],
+  [4, 133, 107], [8, 59, 37, 1, 60, 38], [8, 44, 20, 4, 45, 21], [12, 33, 11, 4, 34, 12],
+  [3, 145, 115, 1, 146, 116], [4, 64, 40, 5, 65, 41], [11, 36, 16, 5, 37, 17], [11, 36, 12, 5, 37, 13],
+  [5, 109, 87, 1, 110, 88], [5, 65, 41, 5, 66, 42], [5, 54, 24, 7, 55, 25], [11, 36, 12],
+  [5, 122, 98, 1, 123, 99], [7, 73, 45, 3, 74, 46], [15, 43, 19, 2, 44, 20], [3, 45, 15, 13, 46, 16],
+  [1, 135, 107, 5, 136, 108], [10, 74, 46, 1, 75, 47], [1, 50, 22, 15, 51, 23], [2, 42, 14, 17, 43, 15],
+  [5, 150, 120, 1, 151, 121], [9, 69, 43, 4, 70, 44], [17, 50, 22, 1, 51, 23], [2, 42, 14, 19, 43, 15],
+  [3, 141, 113, 4, 142, 114], [3, 70, 44, 11, 71, 45], [17, 47, 21, 4, 48, 22], [9, 39, 13, 16, 40, 14],
+  [3, 135, 107, 5, 136, 108], [3, 67, 41, 13, 68, 42], [15, 54, 24, 5, 55, 25], [15, 43, 15, 10, 44, 16],
+  [4, 144, 116, 4, 145, 117], [17, 68, 42], [17, 50, 22, 6, 51, 23], [19, 46, 16, 6, 47, 17],
+  [2, 139, 111, 7, 140, 112], [17, 74, 46], [7, 54, 24, 16, 55, 25], [34, 37, 13],
+  [4, 151, 121, 5, 152, 122], [4, 75, 47, 14, 76, 48], [11, 54, 24, 14, 55, 25], [16, 45, 15, 14, 46, 16],
+  [6, 147, 117, 4, 148, 118], [6, 73, 45, 14, 74, 46], [11, 54, 24, 16, 55, 25], [30, 46, 16, 2, 47, 17],
+  [8, 132, 106, 4, 133, 107], [8, 75, 47, 13, 76, 48], [7, 54, 24, 22, 55, 25], [22, 45, 15, 13, 46, 16],
+  [10, 142, 114, 2, 143, 115], [19, 74, 46, 4, 75, 47], [28, 50, 22, 6, 51, 23], [33, 46, 16, 4, 47, 17],
+  [8, 152, 122, 4, 153, 123], [22, 73, 45, 3, 74, 46], [8, 53, 23, 26, 54, 24], [12, 45, 15, 28, 46, 16],
+  [3, 147, 117, 10, 148, 118], [3, 73, 45, 23, 74, 46], [4, 54, 24, 31, 55, 25], [11, 45, 15, 31, 46, 16],
+  [7, 146, 116, 7, 147, 117], [21, 73, 45, 7, 74, 46], [1, 53, 23, 37, 54, 24], [19, 45, 15, 26, 46, 16],
+  [5, 145, 115, 10, 146, 116], [19, 75, 47, 10, 76, 48], [15, 54, 24, 25, 55, 25], [23, 45, 15, 25, 46, 16],
+  [13, 145, 115, 3, 146, 116], [2, 74, 46, 29, 75, 47], [42, 54, 24, 1, 55, 25], [23, 45, 15, 28, 46, 16],
+  [17, 145, 115], [10, 74, 46, 23, 75, 47], [10, 54, 24, 35, 55, 25], [19, 45, 15, 35, 46, 16],
+  [17, 145, 115, 1, 146, 116], [14, 74, 46, 21, 75, 47], [29, 54, 24, 19, 55, 25], [11, 45, 15, 46, 46, 16],
+  [13, 145, 115, 6, 146, 116], [14, 74, 46, 23, 75, 47], [44, 54, 24, 7, 55, 25], [59, 46, 16, 1, 47, 17],
+  [12, 151, 121, 7, 152, 122], [12, 75, 47, 26, 76, 48], [39, 54, 24, 14, 55, 25], [22, 45, 15, 41, 46, 16],
+  [6, 151, 121, 14, 152, 122], [6, 75, 47, 34, 76, 48], [46, 54, 24, 10, 55, 25], [2, 45, 15, 64, 46, 16],
+  [17, 152, 122, 4, 153, 123], [29, 74, 46, 14, 75, 47], [49, 54, 24, 10, 55, 25], [24, 45, 15, 46, 46, 16],
+  [4, 152, 122, 18, 153, 123], [13, 74, 46, 32, 75, 47], [48, 54, 24, 14, 55, 25], [42, 45, 15, 32, 46, 16],
+  [20, 147, 117, 4, 148, 118], [40, 75, 47, 7, 76, 48], [43, 54, 24, 22, 55, 25], [10, 45, 15, 67, 46, 16],
+  [19, 148, 118, 6, 149, 119], [18, 75, 47, 31, 76, 48], [34, 54, 24, 34, 55, 25], [20, 45, 15, 61, 46, 16],
+];
+
+function getRSBlocks(typeNumber, rsRowOffset) {
+  const row = RS_BLOCK_TABLE[(typeNumber - 1) * 4 + rsRowOffset];
+  if (!row) throw new Error(`bad rs block @ typeNumber:${typeNumber}/rsRowOffset:${rsRowOffset}`);
+  const list = [];
+  const groups = row.length / 3;
+  for (let i = 0; i < groups; i++) {
+    const count = row[i * 3 + 0];
+    const totalCount = row[i * 3 + 1];
+    const dataCount = row[i * 3 + 2];
+    for (let j = 0; j < count; j++) list.push({ totalCount, dataCount });
+  }
+  return list;
+}
+
+const PATTERN_POSITION_TABLE = [
+  [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42],
+  [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66],
+  [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78], [6, 30, 56, 82], [6, 30, 58, 86],
+  [6, 34, 62, 90], [6, 28, 50, 72, 94], [6, 26, 50, 74, 98], [6, 30, 54, 78, 102],
+  [6, 28, 54, 80, 106], [6, 32, 58, 84, 110], [6, 30, 58, 86, 114], [6, 34, 62, 90, 118],
+  [6, 26, 50, 74, 98, 122], [6, 30, 54, 78, 102, 126], [6, 26, 52, 78, 104, 130],
+  [6, 30, 56, 82, 108, 134], [6, 34, 60, 86, 112, 138], [6, 30, 58, 86, 114, 142],
+  [6, 34, 62, 90, 118, 146], [6, 30, 54, 78, 102, 126, 150], [6, 24, 50, 76, 102, 128, 154],
+  [6, 28, 54, 80, 106, 132, 158], [6, 32, 58, 84, 110, 136, 162], [6, 26, 54, 82, 110, 138, 166],
+  [6, 30, 58, 86, 114, 142, 170],
+];
+
+const G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+const G18 =
+  (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+const G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+function getBCHDigit(data) {
+  let digit = 0;
+  while (data !== 0) {
+    digit++;
+    data >>>= 1;
+  }
+  return digit;
+}
+function getBCHTypeInfo(data) {
+  let d = data << 10;
+  while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+    d ^= G15 << (getBCHDigit(d) - getBCHDigit(G15));
+  }
+  return ((data << 10) | d) ^ G15_MASK;
+}
+function getBCHTypeNumber(data) {
+  let d = data << 12;
+  while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+    d ^= G18 << (getBCHDigit(d) - getBCHDigit(G18));
+  }
+  return (data << 12) | d;
+}
+
+function getMask(maskPattern, i, j) {
+  switch (maskPattern) {
+    case 0:
+      return (i + j) % 2 === 0;
+    case 1:
+      return i % 2 === 0;
+    case 2:
+      return j % 3 === 0;
+    case 3:
+      return (i + j) % 3 === 0;
+    case 4:
+      return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0;
+    case 5:
+      return ((i * j) % 2) + ((i * j) % 3) === 0;
+    case 6:
+      return (((i * j) % 2) + ((i * j) % 3)) % 2 === 0;
+    case 7:
+      return (((i * j) % 3) + ((i + j) % 2)) % 2 === 0;
+    default:
+      throw new Error(`bad maskPattern:${maskPattern}`);
+  }
+}
+
+function getLengthInBits(type) {
+  // Byte mode only.
+  if (type < 10) return 8;
+  return 16;
+}
+
+function createData(typeNumber, rsRowOffset, dataBytes) {
+  const rsBlocks = getRSBlocks(typeNumber, rsRowOffset);
+  const buffer = new QrBitBuffer();
+
+  // Mode indicator: 0100 = byte mode.
+  buffer.put(0b0100, 4);
+  buffer.put(dataBytes.length, getLengthInBits(typeNumber));
+  for (const b of dataBytes) buffer.put(b, 8);
+
+  let totalDataCount = 0;
+  for (const b of rsBlocks) totalDataCount += b.dataCount;
+
+  if (buffer.getLengthInBits() > totalDataCount * 8) {
+    throw new Error(`code length overflow. (${buffer.getLengthInBits()}>${totalDataCount * 8})`);
+  }
+
+  if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) buffer.put(0, 4);
+  while (buffer.getLengthInBits() % 8 !== 0) buffer.putBit(false);
+
+  const PAD0 = 0xec;
+  const PAD1 = 0x11;
+  while (buffer.getLengthInBits() < totalDataCount * 8) {
+    buffer.put(PAD0, 8);
+    if (buffer.getLengthInBits() >= totalDataCount * 8) break;
+    buffer.put(PAD1, 8);
+  }
+
+  return createBytes(buffer, rsBlocks);
+}
+
+function createBytes(buffer, rsBlocks) {
+  let offset = 0;
+  let maxDcCount = 0;
+  let maxEcCount = 0;
+
+  const dcdata = new Array(rsBlocks.length);
+  const ecdata = new Array(rsBlocks.length);
+
+  for (let r = 0; r < rsBlocks.length; r++) {
+    const dcCount = rsBlocks[r].dataCount;
+    const ecCount = rsBlocks[r].totalCount - dcCount;
+    maxDcCount = Math.max(maxDcCount, dcCount);
+    maxEcCount = Math.max(maxEcCount, ecCount);
+
+    dcdata[r] = new Array(dcCount);
+    for (let i = 0; i < dcdata[r].length; i++) dcdata[r][i] = 0xff & buffer.buffer[i + offset];
+    offset += dcCount;
+
+    const rsPoly = getErrorCorrectPolynomial(ecCount);
+    const rawPoly = new QrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+    const modPoly = rawPoly.mod(rsPoly);
+
+    ecdata[r] = new Array(rsPoly.getLength() - 1);
+    for (let x = 0; x < ecdata[r].length; x++) {
+      const modIndex = x + modPoly.getLength() - ecdata[r].length;
+      ecdata[r][x] = modIndex >= 0 ? modPoly.get(modIndex) : 0;
+    }
+  }
+
+  let totalCodeCount = 0;
+  for (const b of rsBlocks) totalCodeCount += b.totalCount;
+
+  const data = new Array(totalCodeCount);
+  let index = 0;
+  for (let z = 0; z < maxDcCount; z++) {
+    for (let s = 0; s < rsBlocks.length; s++) {
+      if (z < dcdata[s].length) data[index++] = dcdata[s][z];
+    }
+  }
+  for (let z = 0; z < maxEcCount; z++) {
+    for (let s = 0; s < rsBlocks.length; s++) {
+      if (z < ecdata[s].length) data[index++] = ecdata[s][z];
+    }
+  }
+  return data;
+}
+
+class QrCodeBuilder {
+  constructor(typeNumber, formatInfoBits, rsRowOffset) {
+    this.typeNumber = typeNumber;
+    this.formatInfoBits = formatInfoBits; // for setupTypeInfo() — the spec's format-info EC-level bits
+    this.rsRowOffset = rsRowOffset; // for getRSBlocks()/createData() — RS_BLOCK_TABLE's row order
+    this.moduleCount = 0;
+    this.modules = [];
+  }
+
+  isDark(row, col) {
+    return !!this.modules[row][col];
+  }
+
+  setupPositionProbePattern(row, col) {
+    for (let r = -1; r <= 7; r++) {
+      if (row + r <= -1 || this.moduleCount <= row + r) continue;
+      for (let c = -1; c <= 7; c++) {
+        if (col + c <= -1 || this.moduleCount <= col + c) continue;
+        const dark =
+          (0 <= r && r <= 6 && (c === 0 || c === 6)) ||
+          (0 <= c && c <= 6 && (r === 0 || r === 6)) ||
+          (2 <= r && r <= 4 && 2 <= c && c <= 4);
+        this.modules[row + r][col + c] = dark;
+      }
+    }
+  }
+
+  setupTimingPattern() {
+    for (let r = 8; r < this.moduleCount - 8; r++) {
+      if (this.modules[r][6] !== null) continue;
+      this.modules[r][6] = r % 2 === 0;
+    }
+    for (let c = 8; c < this.moduleCount - 8; c++) {
+      if (this.modules[6][c] !== null) continue;
+      this.modules[6][c] = c % 2 === 0;
+    }
+  }
+
+  setupPositionAdjustPattern() {
+    const pos = PATTERN_POSITION_TABLE[this.typeNumber - 1];
+    for (const row0 of pos) {
+      for (const col0 of pos) {
+        if (this.modules[row0][col0] !== null) continue;
+        for (let r = -2; r <= 2; r++) {
+          for (let c = -2; c <= 2; c++) {
+            const dark = Math.abs(r) === 2 || Math.abs(c) === 2 || (r === 0 && c === 0);
+            this.modules[row0 + r][col0 + c] = dark;
+          }
+        }
+      }
+    }
+  }
+
+  setupTypeNumber(test) {
+    const bits = getBCHTypeNumber(this.typeNumber);
+    for (let i = 0; i < 18; i++) {
+      const mod = !test && ((bits >> i) & 1) === 1;
+      this.modules[Math.floor(i / 3)][(i % 3) + this.moduleCount - 8 - 3] = mod;
+    }
+    for (let x = 0; x < 18; x++) {
+      const mod = !test && ((bits >> x) & 1) === 1;
+      this.modules[(x % 3) + this.moduleCount - 8 - 3][Math.floor(x / 3)] = mod;
+    }
+  }
+
+  setupTypeInfo(test, maskPattern) {
+    const data = (this.formatInfoBits << 3) | maskPattern;
+    const bits = getBCHTypeInfo(data);
+
+    for (let v = 0; v < 15; v++) {
+      const mod = !test && ((bits >> v) & 1) === 1;
+      if (v < 6) this.modules[v][8] = mod;
+      else if (v < 8) this.modules[v + 1][8] = mod;
+      else this.modules[this.moduleCount - 15 + v][8] = mod;
+    }
+    for (let h = 0; h < 15; h++) {
+      const mod = !test && ((bits >> h) & 1) === 1;
+      if (h < 8) this.modules[8][this.moduleCount - h - 1] = mod;
+      else if (h < 9) this.modules[8][15 - h - 1 + 1] = mod;
+      else this.modules[8][15 - h - 1] = mod;
+    }
+    this.modules[this.moduleCount - 8][8] = !test;
+  }
+
+  mapData(data, maskPattern) {
+    let inc = -1;
+    let row = this.moduleCount - 1;
+    let bitIndex = 7;
+    let byteIndex = 0;
+
+    for (let col = this.moduleCount - 1; col > 0; col -= 2) {
+      if (col === 6) col--;
+      while (true) {
+        for (let c = 0; c < 2; c++) {
+          if (this.modules[row][col - c] === null) {
+            let dark = false;
+            if (byteIndex < data.length) {
+              dark = ((data[byteIndex] >>> bitIndex) & 1) === 1;
+            }
+            const mask = getMask(maskPattern, row, col - c);
+            if (mask) dark = !dark;
+            this.modules[row][col - c] = dark;
+            bitIndex--;
+            if (bitIndex === -1) {
+              byteIndex++;
+              bitIndex = 7;
+            }
+          }
+        }
+        row += inc;
+        if (row < 0 || this.moduleCount <= row) {
+          row -= inc;
+          inc = -inc;
+          break;
+        }
+      }
+    }
+  }
+
+  makeImpl(test, maskPattern, dataCache) {
+    this.moduleCount = this.typeNumber * 4 + 17;
+    this.modules = new Array(this.moduleCount);
+    for (let row = 0; row < this.moduleCount; row++) {
+      this.modules[row] = new Array(this.moduleCount).fill(null);
+    }
+
+    this.setupPositionProbePattern(0, 0);
+    this.setupPositionProbePattern(this.moduleCount - 7, 0);
+    this.setupPositionProbePattern(0, this.moduleCount - 7);
+    this.setupPositionAdjustPattern();
+    this.setupTimingPattern();
+    this.setupTypeInfo(test, maskPattern);
+    if (this.typeNumber >= 7) this.setupTypeNumber(test);
+    this.mapData(dataCache, maskPattern);
+  }
+
+  getLostPoint() {
+    const moduleCount = this.moduleCount;
+    let lostPoint = 0;
+
+    for (let row = 0; row < moduleCount; row++) {
+      for (let col = 0; col < moduleCount; col++) {
+        let sameCount = 0;
+        const dark = this.isDark(row, col);
+        for (let r = -1; r <= 1; r++) {
+          if (row + r < 0 || moduleCount <= row + r) continue;
+          for (let c = -1; c <= 1; c++) {
+            if (col + c < 0 || moduleCount <= col + c) continue;
+            if (r === 0 && c === 0) continue;
+            if (dark === this.isDark(row + r, col + c)) sameCount++;
+          }
+        }
+        if (sameCount > 5) lostPoint += 3 + sameCount - 5;
+      }
+    }
+
+    for (let row = 0; row < moduleCount - 1; row++) {
+      for (let col = 0; col < moduleCount - 1; col++) {
+        let count = 0;
+        if (this.isDark(row, col)) count++;
+        if (this.isDark(row + 1, col)) count++;
+        if (this.isDark(row, col + 1)) count++;
+        if (this.isDark(row + 1, col + 1)) count++;
+        if (count === 0 || count === 4) lostPoint += 3;
+      }
+    }
+
+    for (let row = 0; row < moduleCount; row++) {
+      for (let col = 0; col < moduleCount - 6; col++) {
+        if (
+          this.isDark(row, col) &&
+          !this.isDark(row, col + 1) &&
+          this.isDark(row, col + 2) &&
+          this.isDark(row, col + 3) &&
+          this.isDark(row, col + 4) &&
+          !this.isDark(row, col + 5) &&
+          this.isDark(row, col + 6)
+        ) {
+          lostPoint += 40;
+        }
+      }
+    }
+    for (let col = 0; col < moduleCount; col++) {
+      for (let row = 0; row < moduleCount - 6; row++) {
+        if (
+          this.isDark(row, col) &&
+          !this.isDark(row + 1, col) &&
+          this.isDark(row + 2, col) &&
+          this.isDark(row + 3, col) &&
+          this.isDark(row + 4, col) &&
+          !this.isDark(row + 5, col) &&
+          this.isDark(row + 6, col)
+        ) {
+          lostPoint += 40;
+        }
+      }
+    }
+
+    let darkCount = 0;
+    for (let col = 0; col < moduleCount; col++) {
+      for (let row = 0; row < moduleCount; row++) {
+        if (this.isDark(row, col)) darkCount++;
+      }
+    }
+    const ratio = Math.abs((100 * darkCount) / moduleCount / moduleCount - 50) / 5;
+    lostPoint += ratio * 10;
+
+    return lostPoint;
+  }
+
+  make(dataBytes) {
+    const dataCache = createData(this.typeNumber, this.rsRowOffset, dataBytes);
+
+    let minLostPoint = 0;
+    let bestPattern = 0;
+    for (let i = 0; i < 8; i++) {
+      this.makeImpl(true, i, dataCache);
+      const lostPoint = this.getLostPoint();
+      if (i === 0 || minLostPoint > lostPoint) {
+        minLostPoint = lostPoint;
+        bestPattern = i;
+      }
+    }
+    this.makeImpl(false, bestPattern, dataCache);
+  }
+}
+
+/**
+ * Encodes `text` into a QR code module matrix at the smallest version
+ * that fits, for the given error-correction level ("L"|"M"|"Q"|"H").
+ * Returns { size, isDark(row, col) }.
+ */
+function generateQrMatrix(text, ecLevel) {
+  ecLevel = ecLevel || "M";
+  const formatInfoBits = FORMAT_INFO_BITS[ecLevel];
+  const rsRowOffset = RS_BLOCK_ROW_OFFSET[ecLevel];
+  const bytes = [];
+  for (let i = 0; i < text.length; i++) bytes.push(text.charCodeAt(i) & 0xff);
+
+  let typeNumber = -1;
+  for (let t = 1; t <= 40; t++) {
+    const rsBlocks = getRSBlocks(t, rsRowOffset);
+    let totalDataCount = 0;
+    for (const b of rsBlocks) totalDataCount += b.dataCount;
+    const headerBits = 4 + getLengthInBits(t);
+    const neededBits = headerBits + bytes.length * 8;
+    if (neededBits <= totalDataCount * 8) {
+      typeNumber = t;
+      break;
+    }
+  }
+  if (typeNumber === -1) {
+    throw new Error(`Text too long to encode as a QR code (${bytes.length} bytes).`);
+  }
+
+  const builder = new QrCodeBuilder(typeNumber, formatInfoBits, rsRowOffset);
+  builder.make(bytes);
+
+  return {
+    size: builder.moduleCount,
+    isDark: (row, col) => builder.isDark(row, col),
+  };
+}
+
+/* =========================================================================
+   Plain-JS port of src/server/certificates/generate-pdf.ts — same layout,
+   byte-for-byte, using the pdf-lib UMD build loaded above via <script
+   src=".../pdf-lib.min.js"> (global `PDFLib`) instead of an ES import,
+   and generateQrMatrix() above instead of @/lib/qrcode. Branding is read
+   live from the current institute record every time a certificate is
+   previewed — never cached on the student record — matching
+   generate-pdf.ts's own "branding isn't a certified fact" design note.
+   ========================================================================= */
+
+// data:<mime>;base64,<data> -> Uint8Array. pdf-lib's embedPng/embedJpg
+// need raw bytes, not a data: URL string.
+function dataUrlToBytes(dataUrl) {
+  const comma = dataUrl.indexOf(",");
+  const base64 = dataUrl.slice(comma + 1);
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// Embeds a logo/signature image, trying the format its data: URL's mime
+// prefix claims first and falling back to the other — a mislabeled
+// upload shouldn't break certificate generation. Returns null (never
+// throws) on anything unreadable, so a missing/corrupt image just omits
+// that element instead of failing the whole PDF.
+async function tryEmbedImage(doc, dataUrl) {
+  if (!dataUrl) return null;
+  let mimeType = "";
+  const match = /^data:([^;]+);base64,/.exec(dataUrl);
+  if (match) mimeType = match[1];
+  let bytes;
+  try {
+    bytes = dataUrlToBytes(dataUrl);
+  } catch {
+    return null;
+  }
+  const attempts =
+    mimeType === "image/png"
+      ? [() => doc.embedPng(bytes), () => doc.embedJpg(bytes)]
+      : [() => doc.embedJpg(bytes), () => doc.embedPng(bytes)];
+  for (const attempt of attempts) {
+    try {
+      return await attempt();
+    } catch {
+      // try the next format
+    }
+  }
+  return null;
+}
+
+/** Draws a QR matrix as a grid of filled squares — no image encoding. */
+function drawQrCode(page, text, opts) {
+  const matrix = generateQrMatrix(text, "M");
+  const moduleSize = opts.size / matrix.size;
+  for (let row = 0; row < matrix.size; row++) {
+    for (let col = 0; col < matrix.size; col++) {
+      if (matrix.isDark(row, col)) {
+        page.drawRectangle({
+          // QR row 0 is the TOP of the code; PDF y grows upward, so flip
+          // the row index when mapping into page coordinates.
+          x: opts.x + col * moduleSize,
+          y: opts.y + (matrix.size - 1 - row) * moduleSize,
+          width: moduleSize,
+          height: moduleSize,
+          color: opts.color,
+        });
+      }
+    }
+  }
+}
+
+/** width/height for `image` scaled to fit inside a maxW x maxH box, preserving aspect ratio. */
+function fitImage(image, maxW, maxH) {
+  const scale = Math.min(maxW / image.width, maxH / image.height, 1);
+  const upscale = Math.min(maxW / image.width, maxH / image.height);
+  const s = image.width * upscale <= maxW && image.height * upscale <= maxH ? upscale : scale;
+  return { width: image.width * s, height: image.height * s };
+}
+
+/**
+ * Builds the certificate PDF and returns its bytes (Uint8Array). `input`
+ * fields mirror the real app's CertificatePdfInput: code, studentName,
+ * instituteName, courseName, completionDate (Date|null), issuedAt (Date),
+ * verifyUrl, plus optional branding: logoDataUrl, tagline, website,
+ * contactEmail, addressLine, centreHeadName, centreHeadSignatureDataUrl,
+ * authorityName, authoritySignatureDataUrl.
+ */
+async function generateCertificatePdfBytes(input) {
+  const { PDFDocument, StandardFonts, rgb } = PDFLib;
+  const doc = await PDFDocument.create();
+  doc.setTitle(`Certificate — ${input.studentName}`);
+  doc.setProducer("Certivo");
+
+  const page = doc.addPage([842, 595]); // A4 landscape, points
+  const { width, height } = page.getSize();
+
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const regular = await doc.embedFont(StandardFonts.Helvetica);
+  const oblique = await doc.embedFont(StandardFonts.HelveticaOblique);
+  const nameFont = await doc.embedFont(StandardFonts.TimesRomanBoldItalic);
+
+  const ink = rgb(0.06, 0.09, 0.16);
+  const muted = rgb(0.39, 0.45, 0.55);
+  const faint = rgb(0.58, 0.64, 0.72);
+  const accent = rgb(0.31, 0.27, 0.9);
+  const border = rgb(0.85, 0.87, 0.92);
+
+  page.drawRectangle({
+    x: 24, y: 24, width: width - 48, height: height - 48,
+    borderColor: accent, borderWidth: 2,
+  });
+  page.drawRectangle({
+    x: 34, y: 34, width: width - 68, height: height - 68,
+    borderColor: muted, borderWidth: 0.75,
+  });
+
+  const MARGIN = 70;
+  const MIN_SIZE = 8;
+  const centerText = (text, y, font, size, color) => {
+    font = font || regular;
+    size = size || 12;
+    color = color || ink;
+    const maxWidth = width - MARGIN * 2;
+    let fitSize = size;
+    let textWidth = font.widthOfTextAtSize(text, fitSize);
+    if (textWidth > maxWidth) {
+      fitSize = Math.max(MIN_SIZE, size * (maxWidth / textWidth));
+      textWidth = font.widthOfTextAtSize(text, fitSize);
+    }
+    page.drawText(text, { x: (width - textWidth) / 2, y, size: fitSize, font, color });
+    return fitSize;
+  };
+
+  // --- Header: logo (top-left) + institute name/tagline/contact (centered) ---
+  const logoImage = await tryEmbedImage(doc, input.logoDataUrl);
+  if (logoImage) {
+    const box = fitImage(logoImage, 64, 64);
+    page.drawImage(logoImage, { x: 56, y: height - 56 - box.height, width: box.width, height: box.height });
+  }
+
+  centerText(input.instituteName.toUpperCase(), height - 62, bold, 19, accent);
+
+  let headerY = height - 82;
+  if (input.tagline) {
+    centerText(input.tagline, headerY, oblique, 10, muted);
+    headerY -= 15;
+  }
+  const contactParts = [input.website, input.contactEmail, input.addressLine].filter((p) => Boolean(p && p.trim()));
+  if (contactParts.length > 0) {
+    centerText(contactParts.join("   ·   "), headerY, regular, 9, faint);
+    headerY -= 14;
+  }
+
+  page.drawLine({ start: { x: 90, y: headerY - 4 }, end: { x: width - 90, y: headerY - 4 }, thickness: 0.75, color: border });
+
+  // --- Body: title, student name, course ---
+  centerText("CERTIFICATE OF COMPLETION", height - 155, bold, 26, ink);
+  centerText("This is to certify that", height - 190, regular, 13, muted);
+  centerText(input.studentName, height - 230, nameFont, 30, ink);
+  centerText("has successfully completed the course", height - 265, regular, 13, muted);
+  centerText(input.courseName, height - 297, bold, 20, ink);
+
+  if (input.completionDate) {
+    centerText(
+      `Completed on ${input.completionDate.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}`,
+      height - 328, regular, 12, muted,
+    );
+  }
+
+  // --- Info strip: Certificate ID | Issue Date ---
+  const infoLabelValue = (label, value, boxX, boxW) => {
+    page.drawRectangle({ x: boxX, y: 148, width: boxW, height: 40, borderColor: border, borderWidth: 1 });
+    const labelSize = 8;
+    const labelWidth = regular.widthOfTextAtSize(label, labelSize);
+    page.drawText(label, { x: boxX + (boxW - labelWidth) / 2, y: 148 + 27, size: labelSize, font: regular, color: faint });
+    let valueSize = 12;
+    let valueWidth = bold.widthOfTextAtSize(value, valueSize);
+    if (valueWidth > boxW - 16) {
+      valueSize = Math.max(8, valueSize * ((boxW - 16) / valueWidth));
+      valueWidth = bold.widthOfTextAtSize(value, valueSize);
+    }
+    page.drawText(value, { x: boxX + (boxW - valueWidth) / 2, y: 148 + 9, size: valueSize, font: bold, color: ink });
+  };
+
+  const infoBoxWidth = 220;
+  const infoGap = 16;
+  const infoTotalWidth = infoBoxWidth * 2 + infoGap;
+  const infoStartX = (width - infoTotalWidth) / 2;
+  infoLabelValue("CERTIFICATE ID", input.code, infoStartX, infoBoxWidth);
+  infoLabelValue(
+    "ISSUE DATE",
+    input.issuedAt.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" }),
+    infoStartX + infoBoxWidth + infoGap,
+    infoBoxWidth,
+  );
+
+  // --- Footer: two signature blocks + verification QR ---
+  const drawSignature = async (opts) => {
+    const lineWidth = 170;
+    const lineY = 72;
+    const sigImage = await tryEmbedImage(doc, opts.signatureDataUrl);
+    if (sigImage) {
+      const box = fitImage(sigImage, lineWidth - 20, 34);
+      page.drawImage(sigImage, { x: opts.centerX - box.width / 2, y: lineY + 2, width: box.width, height: box.height });
+    }
+    page.drawLine({ start: { x: opts.centerX - lineWidth / 2, y: lineY }, end: { x: opts.centerX + lineWidth / 2, y: lineY }, thickness: 1, color: border });
+    const name = (opts.name && opts.name.trim()) || " ";
+    const nameSize = 12;
+    const nameWidth = bold.widthOfTextAtSize(name, nameSize);
+    page.drawText(name, { x: opts.centerX - nameWidth / 2, y: lineY - 16, size: nameSize, font: bold, color: ink });
+    const titleWidth = regular.widthOfTextAtSize(opts.title, 9.5);
+    page.drawText(opts.title, { x: opts.centerX - titleWidth / 2, y: lineY - 29, size: 9.5, font: regular, color: muted });
+  };
+
+  await drawSignature({ centerX: 210, name: input.centreHeadName, title: "Centre Head", signatureDataUrl: input.centreHeadSignatureDataUrl });
+  await drawSignature({ centerX: 460, name: input.authorityName, title: "Authority", signatureDataUrl: input.authoritySignatureDataUrl });
+
+  const qrSize = 62;
+  const qrX = width - 90 - qrSize;
+  const qrY = 55;
+  drawQrCode(page, input.verifyUrl, { x: qrX, y: qrY, size: qrSize, color: ink });
+  const scanLabel = "SCAN TO VERIFY";
+  const scanLabelSize = 7.5;
+  const scanLabelWidth = bold.widthOfTextAtSize(scanLabel, scanLabelSize);
+  page.drawText(scanLabel, { x: qrX + (qrSize - scanLabelWidth) / 2, y: qrY + qrSize + 6, size: scanLabelSize, font: bold, color: muted });
+
+  centerText(`Verify at ${input.verifyUrl}`, 40, regular, 8.5, faint);
+
+  return doc.save();
+}
+
+/* =========================================================================
+   In-memory "database" — this is a click-through UI/flow prototype, not
+   connected to the real Postgres/Prisma backend (that half is already
+   built and RLS-verified in the repo; it needs `pnpm install` somewhere
+   with npm access to actually run — see README). Reload = state resets.
+   ========================================================================= */
+const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+function randomCode(len) {
+  let s = "";
+  for (let i = 0; i < len; i++) s += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  return s;
+}
+function paise(rupees) { return Math.round(Number(rupees) * 100); }
+function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+function isValidIndianMobile(v) { return /^[6-9]\d{9}$/.test(v); }
+function fmtMoney(p) { return p == null ? "—" : "₹" + (p / 100).toLocaleString("en-IN"); }
+function fmtDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+}
+// D3/D4: client-side email pattern mirrors isValidEmail's regex above, and
+// every date-of-birth/completion-date field gets max=today — a value like
+// "admin@localhost" or a future date used to only get rejected AFTER
+// submit; both are now caught by the browser's own validation first.
+const EMAIL_PATTERN_ATTR = 'pattern="[^\\s@]+@[^\\s@]+\\.[^\\s@]+" title="Enter a valid email address"';
+function todayIso() { return new Date().toISOString().slice(0, 10); }
+// B4: mirrors the real app's parseOptionalRupeesToPaise/
+// parseOptionalPastOrTodayDate — a malformed fee amount or a date typed
+// directly into the field (bypassing the HTML max=today above) is
+// rejected with a clean message instead of silently producing NaN paise
+// or an unchecked future date on the certificate.
+function parseOptionalRupeesToPaise(raw, label) {
+  if (!raw) return { paise: null };
+  const rupees = Number(raw);
+  if (!Number.isFinite(rupees) || rupees < 0) {
+    return { error: `${label} must be a valid, non-negative amount.` };
+  }
+  return { paise: paise(rupees) };
+}
+function validateNotFutureDate(raw, label) {
+  if (!raw) return {};
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return { error: `${label} isn't a valid date.` };
+  if (d.getTime() > new Date(todayIso() + "T23:59:59").getTime()) {
+    return { error: `${label} can't be in the future.` };
+  }
+  return {};
+}
+
+const INSTITUTE_NAME = "Default Institute";
+const CERT_PREFIX = "INST";
+const ADMIN_ID = "admin"; // seed default institute's admin id
+const ADMIN_PASSWORD = "demo1234";
+const SUPER_ADMIN_ID = "superadmin";
+const SUPER_ADMIN_PASSWORD = "super1234";
+const FREE_DOWNLOADS_PER_PAYMENT = 2; // matches src/config/certificate.ts
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // matches src/components/idle-logout.tsx
+
+function generateUniqueStudentCode() {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = "STU-" + randomCode(8);
+    if (!db.students.some((s) => s.code === code)) return code;
+  }
+  throw new Error("Could not generate a unique student code");
+}
+function slugify(name) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "institute";
+}
+function generateUniqueInstituteSlug(name) {
+  const base = slugify(name);
+  let slug = base;
+  let n = 2;
+  while (db.institutes.some((i) => i.slug === slug)) {
+    slug = `${base}-${n}`;
+    n++;
+  }
+  return slug;
+}
+// Admin login ID is issued by the system, not chosen by the registrant —
+// per explicit instruction ("usmein woh sirf password rakh skta hai, user
+// id submit krne ke baad milega"). Registrant only picks a password.
+function generateUniqueInstituteAdminId() {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const id = "ADM-" + randomCode(6);
+    if (!db.institutes.some((i) => i.adminId === id)) return id;
+  }
+  throw new Error("Could not generate a unique admin ID");
+}
+// Reads a <input type="file"> as a data: URL (base64) — used for the
+// institute logo, which is embedded directly into the demo's in-memory
+// institute record and shown on certificates + the public verify page.
+// A real backend would store this in blob storage (FileObject) and keep
+// only a fileId/URL on Tenant; a data: URL is the demo stand-in.
+//
+// Caps the size and type, and REJECTS (rather than silently resolving
+// null) on any problem — a raw phone-camera photo is easily 5-10MB, and a
+// silent failure there just looks like "logo upload isn't working" with
+// no feedback. Callers show the rejection message to the user instead.
+const MAX_LOGO_BYTES = 200 * 1024; // 200KB — keeps re-renders (every certificate/verify-page view re-embeds this string) fast
+const ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg"];
+function formatBytes(n) {
+  return n >= 1024 * 1024 ? (n / 1024 / 1024).toFixed(1) + "MB" : Math.round(n / 1024) + "KB";
+}
+// Draws a small placeholder logo/signature straight onto a <canvas> and
+// exports it as a real PNG data: URL — used only to pre-fill the seeded
+// Default Institute so the certificate preview looks complete the first
+// time this demo opens, without shipping a binary image asset. Uploaded
+// logos/signatures (readFileAsDataUrl, below) always take priority once
+// an admin picks their own file; these are just a starting placeholder.
+// A real PNG (not an SVG data: URL) matters here specifically because the
+// certificate PDF embeds these bytes via pdf-lib's embedPng, which can't
+// rasterize SVG itself.
+function makeMonogramLogoDataUrl(initials, bg) {
+  const c = document.createElement("canvas");
+  c.width = 160;
+  c.height = 160;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = bg || "#4f46e5";
+  ctx.beginPath();
+  ctx.arc(80, 80, 78, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 62px Inter, Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(initials, 80, 88);
+  return c.toDataURL("image/png");
+}
+function makeSignatureDataUrl(text) {
+  const c = document.createElement("canvas");
+  c.width = 320;
+  c.height = 110;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#1e293b";
+  ctx.font = "italic 42px 'Segoe Script', 'Brush Script MT', cursive, Georgia, serif";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(text, 14, 66);
+  ctx.strokeStyle = "#1e293b";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(14, 80);
+  ctx.bezierCurveTo(80, 90, 200, 68, 300, 82);
+  ctx.stroke();
+  return c.toDataURL("image/png");
+}
+function readFileAsDataUrl(file, opts = {}) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.size) { resolve(null); return; }
+    const allowedTypes = opts.allowedTypes || ALLOWED_LOGO_TYPES;
+    if (allowedTypes && !allowedTypes.includes(file.type)) {
+      reject(new Error(`Only PNG or JPEG images are supported${file.type ? ` (this file is ${file.type})` : ""}.`));
+      return;
+    }
+    const maxBytes = opts.maxBytes || MAX_LOGO_BYTES;
+    if (file.size > maxBytes) {
+      reject(new Error(`That image is ${formatBytes(file.size)} — please choose one under ${formatBytes(maxBytes)}.`));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Couldn't read that file — please try a different image."));
+    reader.readAsDataURL(file);
+  });
+}
+function previewInstituteLogo(input, previewId, errorId) {
+  const img = document.getElementById(previewId || "logoPreview");
+  const errEl = errorId ? document.getElementById(errorId) : null;
+  if (errEl) errEl.innerHTML = "";
+  if (!img) return;
+  const file = input.files && input.files[0];
+  if (!file) { img.hidden = true; img.src = ""; return; }
+  readFileAsDataUrl(file).then((dataUrl) => {
+    if (!dataUrl) { img.hidden = true; return; }
+    img.src = dataUrl;
+    img.hidden = false;
+  }).catch((err) => {
+    img.hidden = true;
+    img.src = "";
+    input.value = ""; // clear the bad selection so submit doesn't silently retry it
+    if (errEl) errEl.innerHTML = `<div class="alert alert-danger" style="margin-top:8px;">${err.message}</div>`;
+  });
+}
+// Escapes a value for safe use inside an HTML attribute (e.g. a prefilled
+// input value="..."). Not for element text content — fieldHtml/etc. rely on
+// the browser's own escaping there; this is only for the few places a
+// stored value gets interpolated into an attribute string.
+function escAttr(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function seedData() {
+  return {
+    nextSeq: 2,
+    instituteSeq: 2,
+    institutes: [
+      {
+        id: "inst1",
+        name: "Default Institute",
+        slug: "default",
+        status: "APPROVED", // PENDING | APPROVED | SUSPENDED — matches Tenant.status in schema.prisma
+        adminId: ADMIN_ID,
+        adminPassword: ADMIN_PASSWORD,
+        ownerName: "Platform Admin",
+        ownerEmail: "admin@default.example",
+        ownerPhone: "9990000000",
+        addressLine1: "1 Institute Road",
+        city: "Pune",
+        state: "Maharashtra",
+        pincode: "411001",
+        logoDataUrl: makeMonogramLogoDataUrl("DI", "#4f46e5"),
+        // Shown on generated certificates — see certificateVisual() /
+        // generateCertificatePdfBytes(). All optional (a real institute
+        // that hasn't set these yet just gets a blank line/no tagline on
+        // its certificates, never a broken one) — pre-filled here only so
+        // the seeded demo institute's certificate preview looks complete
+        // from the first render.
+        tagline: "Skills for tomorrow",
+        centreHeadName: "Rohit Verma",
+        centreHeadSignatureDataUrl: makeSignatureDataUrl("R. Verma"),
+        authorityName: "Dr. Priya Sharma, Director",
+        authoritySignatureDataUrl: makeSignatureDataUrl("P. Sharma"),
+        termsAcceptedAt: "2026-01-01T00:00:00.000Z",
+        termsVersion: "v1",
+        createdAt: "2026-01-01",
+      },
+    ],
+    students: [
+      {
+        id: "s1",
+        instituteId: "inst1",
+        code: "STU-7K3M9QPX",
+        password: "demo1234",
+        fullName: "Ananya Sharma",
+        email: "ananya@example.com",
+        phone: "9876500001",
+        dateOfBirth: "2001-04-12",
+        gender: "Female",
+        guardianName: "Rakesh Sharma",
+        addressLine1: "12 MG Road",
+        city: "Pune",
+        state: "Maharashtra",
+        pincode: "411001",
+        courseName: "Full Stack Web Development",
+        completionDate: "2026-08-20",
+        registrationFeePaise: paise(5000),
+        registrationFeePaid: true,
+        certificateCode: "INST-2026-9F3K7H2R8T",
+        certificateStatus: "ACTIVE",
+        certificateRevokedReason: null,
+        certificateRevokedAt: null,
+        certificateFeePaise: paise(1000),
+        certificateFeePaid: false,
+        certificateDownloadCount: 0,
+      },
+    ],
+  };
+}
+let db = seedData();
+let session = null; // { kind: 'admin', instituteId } | { kind: 'student', studentId } | { kind: 'superadmin' }
+let justResetPasswordFor = null; // studentId whose password was just reset (shown once)
+let justResetPasswordValue = null;
+let certPreviewOpenFor = null; // studentId whose certificate preview is open right now
+// studentId -> { key, url } — the real generated-PDF blob URL for the
+// certificate currently on screen, cached so re-rendering the portal for an
+// unrelated reason (e.g. an idle-timer tick) doesn't regenerate the PDF or
+// churn through blob URLs. `key` captures every input that can change the
+// PDF's bytes; a mismatch (institute branding edited, student record
+// changed) invalidates the cache and regenerates.
+let certPdfUrlCache = {};
+let instituteRegisterResult = null; // the just-submitted institute (shown once on its confirmation screen)
+let renamingInstituteId = null; // institute currently in inline name-edit mode on the Super Admin dashboard
+let saJustResetPasswordFor = null; // institute whose admin password Super Admin just reset (shown once)
+let saJustResetPasswordValue = null;
+// Institute mid-delete-confirmation on the Super Admin dashboard. Deletion
+// used to gate on window.confirm() — a real browser dialog can silently
+// do nothing inside a sandboxed embed (no popup, immediate `false`), which
+// makes the button look broken. An inline confirm row has no such
+// dependency, so it works the same everywhere.
+let deletingInstituteId = null;
+let editingStudentId = null; // student currently in inline details-edit mode on the admin student detail page
+let revokingCertFor = null; // studentId whose certificate is mid-revoke (reason box open) on the admin student detail page
+let settingsSavedFlash = false; // one-shot "saved" banner on the admin's own institute settings page
+let idleTimer = null;
+
+function resetDemo() {
+  db = seedData();
+  session = null;
+  justResetPasswordFor = null;
+  justResetPasswordValue = null;
+  certPreviewOpenFor = null;
+  instituteRegisterResult = null;
+  renamingInstituteId = null;
+  saJustResetPasswordFor = null;
+  saJustResetPasswordValue = null;
+  deletingInstituteId = null;
+  editingStudentId = null;
+  revokingCertFor = null;
+  settingsSavedFlash = false;
+  location.hash = "/";
+  render();
+}
+
+/* ---- tiny hash router ---- */
+function nav(path) { location.hash = path; }
+window.addEventListener("hashchange", render);
+
+function currentPath() {
+  return (location.hash || "#/").slice(1) || "/";
+}
+
+function updateChrome() {
+  const chip = document.getElementById("whoChip");
+  if (session?.kind === "admin") {
+    const inst = db.institutes.find((i) => i.id === session.instituteId);
+    chip.hidden = false;
+    chip.textContent = "Signed in · " + (inst ? inst.name + " admin" : "Admin");
+  } else if (session?.kind === "student") {
+    const s = db.students.find((x) => x.id === session.studentId);
+    chip.hidden = false;
+    chip.textContent = "Signed in · " + (s ? s.fullName : "Student");
+  } else if (session?.kind === "superadmin") {
+    chip.hidden = false;
+    chip.textContent = "Signed in · Super Admin";
+  } else {
+    chip.hidden = true;
+  }
+}
+
+function requireAdmin() {
+  if (session?.kind !== "admin") { nav("/admin/login"); return false; }
+  return true;
+}
+function requireStudent() {
+  if (session?.kind !== "student") { nav("/student/login"); return false; }
+  return true;
+}
+function requireSuperAdmin() {
+  if (session?.kind !== "superadmin") { nav("/super-admin/login"); return false; }
+  return true;
+}
+
+/* ---- icons (inline, matches src/components/icons.tsx) ---- */
+const ICONS = {
+  cert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 8h10M7 11.5h6"/><circle cx="12" cy="18.5" r="2.5"/><path d="M10.2 20.6 9.5 23l2.5-1.3L14.5 23l-.7-2.4"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 5.5v6c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5v-6L12 3Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  cap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 10-5 10 5-10 5-10-5Z"/><path d="M6 11.5V17c0 1.1 2.7 3 6 3s6-1.9 6-3v-5.5"/><path d="M22 9v6"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.6 10.6 0 0 1 12 5c7 0 10.5 7 10.5 7a13.4 13.4 0 0 1-2.9 3.8M6.7 6.7C3.4 8.7 1.5 12 1.5 12s3.5 7 10.5 7a10 10 0 0 0 4.2-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M15 18l-6-6 6-6"/></svg>',
+  superAdmin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V6l-9-4Z"/><circle cx="12" cy="10.5" r="2.2"/><path d="M8.5 16.2c.6-1.8 2-2.7 3.5-2.7s2.9.9 3.5 2.7"/></svg>',
+  pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>',
+};
+
+/* ---- F1: real theme toggle (see the .dark CSS block's comment) ---- */
+let isDarkMode = false;
+function applyTheme() {
+  document.documentElement.classList.toggle("dark", isDarkMode);
+  const btn = document.getElementById("themeToggleBtn");
+  if (!btn) return;
+  btn.innerHTML = isDarkMode ? ICONS.sun : ICONS.moon;
+  const label = isDarkMode ? "Switch to light mode" : "Switch to dark mode";
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+}
+function toggleDarkMode() {
+  isDarkMode = !isDarkMode;
+  applyTheme();
+}
+// One-time read of the OS preference at load — after this, only the
+// button changes it; the page never reacts to the OS preference changing
+// mid-session (that's the whole point of it being a deliberate toggle,
+// not an ambient one).
+if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+  isDarkMode = true;
+}
+
+// Small "← Back" link used near the top of secondary screens (login forms,
+// registration, verification, detail pages) — per the user's explicit
+// "back button sb jagah hona jaha v required ho". `target` is either a
+// hash path (nav there) or the literal "history" to use the browser's own
+// back navigation (best when a screen can be reached from more than one
+// place, e.g. the public verify page).
+function backLink(label, target) {
+  const action = target === "history" ? "history.back()" : `nav('${target}')`;
+  return `<button type="button" onclick="${action}" style="display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--text-muted);font-size:13px;font-family:inherit;cursor:pointer;padding:4px 0;margin-bottom:4px;">${ICONS.back}${label}</button>`;
+}
+
+function passwordFieldHtml(labelText, name, opts = {}) {
+  const req = opts.required ? "required" : "";
+  const id = "f_" + name;
+  const autocomplete = opts.autocomplete || "current-password";
+  return `<div class="field">
+    <label for="${id}">${labelText}</label>
+    <div style="position:relative;">
+      <input id="${id}" name="${name}" type="password" autocomplete="${autocomplete}" autocapitalize="off" autocorrect="off" spellcheck="false" style="padding-right:38px;width:100%;" ${req} />
+      <button type="button" onclick="togglePasswordVisibility('${id}', this)" aria-label="Show password" title="Show password"
+        style="position:absolute;right:2px;top:50%;transform:translateY(-50%);height:30px;width:30px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:6px;background:none;border:none;color:var(--text-muted);cursor:pointer;">${ICONS.eye}</button>
+    </div>
+  </div>`;
+}
+function togglePasswordVisibility(id, btn) {
+  const input = document.getElementById(id);
+  const showing = input.type === "text";
+  input.type = showing ? "password" : "text";
+  btn.innerHTML = showing ? ICONS.eye : ICONS.eyeOff;
+  const label = showing ? "Show password" : "Hide password";
+  btn.setAttribute("aria-label", label);
+  btn.title = label;
+}
+
+/* ---- shared bits ---- */
+function fieldHtml(labelText, name, opts = {}) {
+  const type = opts.type || "text";
+  const req = opts.required ? "required" : "";
+  const ph = opts.placeholder ? `placeholder="${opts.placeholder}"` : "";
+  const span = opts.span2 ? "field span-2" : "field";
+  const extra = opts.extra || "";
+  // A7: optional helper text under the input — e.g. "Defaults to today if
+  // left blank" on completion date, so a skipped optional field doesn't
+  // silently do something the admin didn't realize.
+  const help = opts.help ? `<p style="font-size:12px;color:var(--text-muted);margin-top:2px;">${opts.help}</p>` : "";
+  return `<div class="${span}"><label for="f_${name}">${labelText}</label><input id="f_${name}" name="${name}" type="${type}" ${ph} ${req} ${extra} />${help}</div>`;
+}
+
+function feeRow(label, amountPaise, paid) {
+  const status = amountPaise == null
+    ? '<span class="badge badge-neutral">Not set</span>'
+    : paid
+      ? '<span class="badge badge-success">Paid</span>'
+      : '<span class="badge badge-warning">Pending</span>';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;">
+    <span style="font-size:13.5px;color:var(--text-muted);">${label}</span>
+    <span style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;">${fmtMoney(amountPaise)} ${status}</span>
+  </div>`;
+}
+
+/* =========================================================================
+   Screens
+   ========================================================================= */
+function screenLanding() {
+  return `
+  <section class="hero">
+    <div class="blob blob-a"></div><div class="blob blob-b"></div>
+    <div class="float-icon" style="left:10%;top:22%;width:34px;" aria-hidden="true">${ICONS.cert}</div>
+    <div class="float-icon" style="right:14%;top:16%;width:30px;animation-delay:-3s;" aria-hidden="true">${ICONS.shield}</div>
+    <div class="float-icon" style="left:20%;top:68%;width:32px;animation-delay:-5s;" aria-hidden="true">${ICONS.cap}</div>
+    <div class="wrap" style="text-align:center;position:relative;">
+      <span class="eyebrow">✦ Digital certificates institutes can trust</span>
+      <h1 class="h1">Certivo</h1>
+      <p class="tagline">Issue. Verify. Trust.</p>
+      <p class="lede">Register students once. Every certificate gets a unique code the moment it's issued — students download their own PDF, and anyone can confirm it's genuine in seconds, no login required.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px;">
+        <button class="btn btn-primary" onclick="nav('/student/login')">Student sign in</button>
+        <button class="btn btn-outline" onclick="nav('/admin/login')">Institute admin sign in</button>
+      </div>
+      <p style="margin-top:16px;font-size:13.5px;color:var(--text-muted);">New institute? <a href="#/institute/register" style="color:var(--brand);text-decoration:underline;">Register your institute</a></p>
+    </div>
+  </section>
+
+  <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg-subtle);">
+    <div class="wrap trust-strip">
+      <div class="card trust-card">${ICONS.cert.replace('<svg ', '<svg width="26" height="26" ')}<h3>Issue</h3><p>Register a student, a certificate exists instantly.</p></div>
+      <div class="card trust-card">${ICONS.shield.replace('<svg ', '<svg width="26" height="26" ')}<h3>Verify</h3><p>One code, publicly checkable, no account needed.</p></div>
+      <div class="card trust-card">${ICONS.cap.replace('<svg ', '<svg width="26" height="26" ')}<h3>Trust</h3><p>Students see and download their own record anytime.</p></div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><h4>Admin registers the student</h4><p>Name, course, every detail the certificate needs — captured once.</p></div>
+      <div class="step"><div class="step-num">2</div><h4>Student gets login access</h4><p>A student ID and password to sign in and see their own record.</p></div>
+      <div class="step"><div class="step-num">3</div><h4>Certificate + code, ready</h4><p>A unique verification code generated straight from registration.</p></div>
+      <div class="step"><div class="step-num">4</div><h4>Anyone can verify it</h4><p>Share the code — verification shows only what's needed to confirm it's real.</p></div>
+    </div>
+  </div>
+
+  <section style="border-top:1px solid var(--border);padding:48px 0;">
+    <div class="wrap-narrow" style="text-align:center;">
+      ${ICONS.shield.replace('<svg ', '<svg width="34" height="34" style="color:var(--brand);" ')}
+      <h2 style="font-size:22px;margin-top:10px;">Already have a certificate code?</h2>
+      <p style="color:var(--text-muted);margin-top:6px;font-size:14px;">Certificate verification is public — no sign-in needed.</p>
+      <form onsubmit="event.preventDefault(); const c=document.getElementById('landingCode').value.trim(); if(c) nav('/v/'+encodeURIComponent(c));" style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;justify-content:center;">
+        <input id="landingCode" placeholder="e.g. INST-2026-9F3K7H2R8T" style="flex:1;min-width:220px;" class="mono" />
+        <button class="btn btn-primary" type="submit">Verify</button>
+      </form>
+      <p style="color:var(--text-faint);font-size:12px;margin-top:10px;">Try the sample: <a href="#/v/INST-2026-9F3K7H2R8T" class="mono" style="color:var(--brand);">INST-2026-9F3K7H2R8T</a></p>
+    </div>
+  </section>
+
+  <footer class="site-footer">Certivo Technologies · Issue. Verify. Trust.</footer>
+  `;
+}
+
+// The generic "/admin/login" entry point: with exactly one approved
+// institute (the common case, including the seeded demo), the router
+// skips this and forwards straight to that institute's own login — zero
+// extra friction. This screen only ever renders when there's a genuine
+// choice to make.
+function screenAdminLoginPicker() {
+  const approved = db.institutes.filter((i) => i.status === "APPROVED");
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;">
+    ${backLink("Back to home", "/")}
+    <div class="card card-pad">
+      <h2 style="font-size:18px;">Select your institute</h2>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:2px;">Certivo — institute admin console</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:18px;">
+        ${approved.length
+          ? approved.map((i) => `<a href="#/admin/login/${i.slug}" class="btn btn-outline" style="justify-content:flex-start;">${i.name}</a>`).join("")
+          : `<p style="color:var(--text-muted);font-size:13.5px;">No approved institutes yet.</p>`}
+      </div>
+      <p style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:18px;">New institute? <a href="#/institute/register" style="color:var(--brand);text-decoration:underline;">Register it</a></p>
+      <p style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:8px;">Looking for your certificate instead? <a href="#/student/login" style="color:var(--brand);text-decoration:underline;">Student sign in</a></p>
+    </div>
+  </div>`;
+}
+
+function screenAdminLogin(slug, error, statusError) {
+  const inst = db.institutes.find((i) => i.slug === slug);
+  if (!inst) {
+    return `
+    <div class="wrap-narrow" style="padding:64px 0;">
+      ${backLink("Back to home", "/")}
+      <div class="card card-pad">
+        <h2 style="font-size:18px;color:var(--danger);">Institute not found</h2>
+        <p style="color:var(--text-muted);font-size:13.5px;margin-top:8px;">That admin login link doesn't match any institute.</p>
+      </div>
+    </div>`;
+  }
+  const statusMessage = statusError === "PENDING"
+    ? `<div class="alert" style="margin-top:16px;background:var(--warning-soft);color:var(--warning);">${inst.name}'s registration is still awaiting Super Admin approval — sign-in opens once it's approved.</div>`
+    : statusError === "SUSPENDED"
+      ? `<div class="alert alert-danger" style="margin-top:16px;">${inst.name}'s account has been suspended. Contact the platform to reactivate it.</div>`
+      : "";
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;">
+    ${backLink("Back to home", "/")}
+    <div class="card card-pad">
+      <h2 style="font-size:18px;">${inst.name}</h2>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:2px;">Institute admin sign in</p>
+      ${error ? `<div class="alert alert-danger" style="margin-top:16px;">That admin ID/password combination isn't recognized.</div>` : ""}
+      ${statusMessage}
+      <form id="adminLoginForm" style="display:flex;flex-direction:column;gap:14px;margin-top:18px;" onsubmit="return onAdminLogin(event)">
+        ${fieldHtml("Admin ID", "adminId", { type: "text", required: true, placeholder: "admin" })}
+        ${passwordFieldHtml("Password", "password", { required: true })}
+        <button class="btn btn-primary" type="submit" style="margin-top:4px;">Sign in</button>
+      </form>
+      ${inst.id === "inst1" ? `<p style="font-size:12px;color:var(--text-faint);margin-top:16px;">Demo admin: <span class="mono">${ADMIN_ID}</span> / <span class="mono">${ADMIN_PASSWORD}</span></p>` : ""}
+      <div style="text-align:center;margin-top:14px;display:flex;flex-direction:column;gap:6px;">
+        <a href="#/admin/forgot-password" style="font-size:13px;color:var(--text-muted);text-decoration:underline;">Forgot password?</a>
+        <p style="font-size:13px;color:var(--text-muted);margin:0;">Looking for your certificate instead? <a href="#/student/login" style="color:var(--brand);text-decoration:underline;">Student sign in</a></p>
+      </div>
+    </div>
+  </div>`;
+}
+function screenAdminForgotPassword() {
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;">
+    ${backLink("Back to home", "/")}
+    <div class="card card-pad">
+      <h2 style="font-size:18px;">Forgot your password?</h2>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:2px;">Self-service reset isn't available yet</p>
+      <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;margin-top:16px;">Password reset emails aren't set up yet. For now, please contact Certivo's Super Admin — they can reset your institute's admin password and share it with you again.</p>
+      <a href="mailto:support@example.com" style="display:block;text-align:center;border:1px solid var(--border);border-radius:8px;padding:9px 0;margin-top:12px;font-size:13.5px;text-decoration:underline;color:var(--text);">Email support@example.com</a>
+      <button class="btn btn-outline" style="width:100%;margin-top:10px;" onclick="nav('/admin/login')">Back to sign in</button>
+    </div>
+  </div>`;
+}
+function onAdminLogin(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const adminId = (f.get("adminId") || "").trim();
+  const password = (f.get("password") || "").trim();
+  const slug = currentPath().split("/")[3];
+  const inst = db.institutes.find((i) => i.slug === slug);
+  if (!inst) { render(); return false; }
+  if (inst.status !== "APPROVED") { render(false, inst.status); return false; }
+  if (inst.adminId === adminId && inst.adminPassword === password) {
+    session = { kind: "admin", instituteId: inst.id };
+    nav("/admin/dashboard");
+  } else {
+    render(true);
+  }
+  return false;
+}
+
+function screenInstituteRegister(error) {
+  if (instituteRegisterResult) {
+    const inst = instituteRegisterResult;
+    return `
+    <div class="wrap-narrow" style="padding:64px 0;">
+      ${backLink("Back to home", "/")}
+      <div class="card card-pad" style="text-align:center;">
+        ${ICONS.shield.replace('<svg ', '<svg width="30" height="30" style="color:var(--warning);" ')}
+        <h2 style="font-size:18px;margin-top:10px;">Registration submitted</h2>
+        <p style="color:var(--text-muted);font-size:13.5px;margin-top:8px;line-height:1.6;">${inst.name} is awaiting approval from Certivo's Super Admin. Once approved, sign in at:</p>
+        <p style="margin-top:10px;"><a href="#/admin/login/${inst.slug}" class="mono" style="color:var(--brand);">certivo.example/admin/login/${inst.slug}</a></p>
+        <div style="margin-top:18px;border:1px solid color-mix(in srgb, var(--success) 30%, transparent);background:var(--success-soft);border-radius:8px;padding:12px 14px;text-align:left;">
+          <div style="font-size:13.5px;font-weight:600;color:var(--success);">Your admin login ID</div>
+          <div class="mono" style="font-size:16px;margin-top:4px;">${inst.adminId}</div>
+          <p style="color:var(--text-muted);font-size:12.5px;margin-top:6px;">Save this — the password is the one you just chose. You'll need both to sign in once approved.</p>
+        </div>
+        <button class="btn btn-outline" style="margin-top:18px;" onclick="nav('/')">Back to home</button>
+      </div>
+    </div>`;
+  }
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;">
+    ${backLink("Back to home", "/")}
+    <div class="card card-pad">
+      <h2 style="font-size:18px;">Register your institute</h2>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:2px;">Creates your institute's own admin login — a Super Admin approves it before sign-in opens. Your login ID is issued automatically once you submit; you only choose a password here.</p>
+      ${error ? `<div class="alert alert-danger" style="margin-top:16px;">${error}</div>` : ""}
+      <form id="instRegForm" style="display:flex;flex-direction:column;gap:20px;margin-top:18px;" onsubmit="return onInstituteRegister(event)">
+        <div class="field-grid">
+          ${fieldHtml("Institute name", "name", { required: true, placeholder: "e.g. Sunrise Skills Academy", span2: true })}
+          ${fieldHtml("Owner / contact name", "ownerName", { required: true })}
+          ${fieldHtml("Owner email", "ownerEmail", { type: "email", required: true, placeholder: "name@example.com", extra: EMAIL_PATTERN_ATTR })}
+          ${fieldHtml("Owner phone", "ownerPhone", { type: "tel", required: true, placeholder: "9876543210", extra: 'inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" title="10-digit mobile number"' })}
+          ${fieldHtml("Address line 1", "addressLine1", { required: true, span2: true })}
+          ${fieldHtml("City", "city", { required: true })}
+          ${fieldHtml("State", "state", { required: true })}
+          ${fieldHtml("Pincode", "pincode", { required: true })}
+          <div class="field span-2">
+            <label for="f_logo">Institute logo (optional — appears on issued certificates, PNG or JPEG, max 200KB)</label>
+            <input id="f_logo" name="logo" type="file" accept="image/png,image/jpeg" onchange="previewInstituteLogo(this, 'logoPreview', 'logoError')" />
+            <div id="logoError"></div>
+            <img id="logoPreview" hidden style="margin-top:8px;max-height:56px;max-width:100%;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;" />
+          </div>
+        </div>
+
+        <div>
+          <h3 style="font-size:14px;margin-bottom:4px;">Certificate branding <span style="font-weight:400;color:var(--text-muted);">(optional — change anytime later in Settings)</span></h3>
+          <p style="color:var(--text-muted);font-size:12.5px;margin-bottom:12px;">Shown on every certificate your institute issues: an optional tagline, and the two signatures certificates carry. Capture them now, or leave blank and add them later.</p>
+          <div class="field-grid">
+            ${fieldHtml("Tagline", "tagline", { placeholder: "e.g. Skills for tomorrow", span2: true })}
+            ${fieldHtml("Centre Head name", "centreHeadName", { placeholder: "e.g. Rohit Verma" })}
+            <div class="field">
+              <label for="f_centreHeadSignature">Centre Head signature (PNG or JPEG, max 200KB)</label>
+              <input id="f_centreHeadSignature" name="centreHeadSignature" type="file" accept="image/png,image/jpeg" onchange="previewInstituteLogo(this, 'centreHeadSigPreview', 'centreHeadSigError')" />
+              <div id="centreHeadSigError"></div>
+              <img id="centreHeadSigPreview" hidden style="margin-top:8px;max-height:48px;max-width:100%;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;" />
+            </div>
+            ${fieldHtml("Authority name", "authorityName", { placeholder: "e.g. Dr. Priya Sharma, Director" })}
+            <div class="field">
+              <label for="f_authoritySignature">Authority signature (PNG or JPEG, max 200KB)</label>
+              <input id="f_authoritySignature" name="authoritySignature" type="file" accept="image/png,image/jpeg" onchange="previewInstituteLogo(this, 'authoritySigPreview', 'authoritySigError')" />
+              <div id="authoritySigError"></div>
+              <img id="authoritySigPreview" hidden style="margin-top:8px;max-height:48px;max-width:100%;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;" />
+            </div>
+          </div>
+        </div>
+
+        ${passwordFieldHtml("Choose a password", "password", { required: true, autocomplete: "new-password" })}
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text-muted);line-height:1.5;">
+          <input type="checkbox" name="termsAccepted" required style="margin-top:3px;" />
+          <span>I agree to Certivo's Terms of Service and Privacy Policy on behalf of this institute.</span>
+        </label>
+        <button class="btn btn-primary" type="submit" style="margin-top:4px;">Submit for approval</button>
+      </form>
+      <p style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:18px;">Looking for your certificate instead? <a href="#/student/login" style="color:var(--brand);text-decoration:underline;">Student sign in</a></p>
+    </div>
+  </div>`;
+}
+async function onInstituteRegister(e) {
+  e.preventDefault();
+  const form = e.target;
+  const f = new FormData(form);
+  const name = (f.get("name") || "").trim();
+  const ownerName = (f.get("ownerName") || "").trim();
+  const ownerEmail = (f.get("ownerEmail") || "").trim();
+  const ownerPhone = (f.get("ownerPhone") || "").trim();
+  const addressLine1 = (f.get("addressLine1") || "").trim();
+  const city = (f.get("city") || "").trim();
+  const state = (f.get("state") || "").trim();
+  const pincode = (f.get("pincode") || "").trim();
+  const password = (f.get("password") || "").trim();
+  const logoFile = f.get("logo");
+  const tagline = (f.get("tagline") || "").trim() || null;
+  const centreHeadName = (f.get("centreHeadName") || "").trim() || null;
+  const centreHeadSignatureFile = f.get("centreHeadSignature");
+  const authorityName = (f.get("authorityName") || "").trim() || null;
+  const authoritySignatureFile = f.get("authoritySignature");
+  const termsAccepted = f.get("termsAccepted") === "on";
+
+  const showError = (msg) => {
+    document.getElementById("app").innerHTML = `<div class="screen active">${screenInstituteRegister(msg)}</div>`;
+  };
+
+  if (!name || !ownerName || !ownerEmail || !ownerPhone || !addressLine1 || !city || !state || !pincode || !password) {
+    showError("All fields are required.");
+    return false;
+  }
+  if (!isValidEmail(ownerEmail)) { showError("That email address doesn't look valid."); return false; }
+  if (!isValidIndianMobile(ownerPhone)) { showError("Phone must be a valid 10-digit mobile number."); return false; }
+  if (!termsAccepted) { showError("Please accept the Terms of Service and Privacy Policy to continue."); return false; }
+
+  let logoDataUrl = null;
+  let centreHeadSignatureDataUrl = null;
+  let authoritySignatureDataUrl = null;
+  try {
+    logoDataUrl = await readFileAsDataUrl(logoFile);
+    centreHeadSignatureDataUrl = await readFileAsDataUrl(centreHeadSignatureFile);
+    authoritySignatureDataUrl = await readFileAsDataUrl(authoritySignatureFile);
+  } catch (err) {
+    showError(err.message);
+    return false;
+  }
+
+  const inst = {
+    id: "inst" + db.instituteSeq++,
+    name,
+    slug: generateUniqueInstituteSlug(name),
+    status: "PENDING",
+    adminId: generateUniqueInstituteAdminId(),
+    adminPassword: password,
+    ownerName, ownerEmail, ownerPhone,
+    addressLine1, city, state, pincode,
+    logoDataUrl,
+    tagline,
+    centreHeadName,
+    centreHeadSignatureDataUrl,
+    authorityName,
+    authoritySignatureDataUrl,
+    termsAcceptedAt: new Date().toISOString(),
+    termsVersion: "v1",
+    createdAt: new Date().toISOString().slice(0, 10),
+  };
+  db.institutes.push(inst);
+  instituteRegisterResult = inst;
+  render();
+  return false;
+}
+
+/* ---- Super Admin: platform-level oversight, approves/suspends institutes.
+   Deliberately reached only via a small icon in the topbar, not a
+   prominent nav item — separate credentials from any institute admin. ---- */
+function screenSuperAdminLogin(error) {
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;">
+    ${backLink("Back to home", "/")}
+    <div class="card card-pad">
+      <h2 style="font-size:18px;">Super Admin sign in</h2>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:2px;">Certivo — platform oversight, not an institute account</p>
+      ${error ? `<div class="alert alert-danger" style="margin-top:16px;">That Super Admin ID/password combination isn't recognized.</div>` : ""}
+      <form style="display:flex;flex-direction:column;gap:14px;margin-top:18px;" onsubmit="return onSuperAdminLogin(event)">
+        ${fieldHtml("Super Admin ID", "superAdminId", { required: true, placeholder: "superadmin" })}
+        ${passwordFieldHtml("Password", "password", { required: true })}
+        <button class="btn btn-primary" type="submit" style="margin-top:4px;">Sign in</button>
+      </form>
+      <p style="font-size:12px;color:var(--text-faint);margin-top:16px;">Demo Super Admin: <span class="mono">${SUPER_ADMIN_ID}</span> / <span class="mono">${SUPER_ADMIN_PASSWORD}</span></p>
+      <p style="text-align:center;font-size:13px;color:var(--text-muted);margin-top:14px;">Looking for your certificate instead? <a href="#/student/login" style="color:var(--brand);text-decoration:underline;">Student sign in</a></p>
+    </div>
+  </div>`;
+}
+function onSuperAdminLogin(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const id = (f.get("superAdminId") || "").trim();
+  const password = (f.get("password") || "").trim();
+  if (id === SUPER_ADMIN_ID && password === SUPER_ADMIN_PASSWORD) {
+    session = { kind: "superadmin" };
+    nav("/super-admin/dashboard");
+  } else {
+    render(true);
+  }
+  return false;
+}
+function superAdminChrome(inner) {
+  return `
+  <div style="border-bottom:1px solid var(--border);background:var(--bg-subtle);">
+    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;padding:12px clamp(16px,4vw,32px);gap:12px;flex-wrap:wrap;">
+      <span style="font-weight:600;font-size:14px;">Certivo · Super Admin</span>
+      <button class="btn btn-ghost btn-sm" onclick="session=null; nav('/super-admin/login');">Sign out</button>
+    </div>
+  </div>
+  <div class="wrap" style="padding:28px clamp(16px,4vw,32px) 56px;">${inner}</div>`;
+}
+function screenSuperAdminDashboard() {
+  const statusBadge = (status) =>
+    status === "APPROVED" ? '<span class="badge badge-success">Approved</span>'
+    : status === "PENDING" ? '<span class="badge badge-warning">Pending</span>'
+    : '<span class="badge badge-danger">Suspended</span>';
+  const studentCount = (instId) => db.students.filter((s) => s.instituteId === instId).length;
+  const pendingCount = db.institutes.filter((i) => i.status === "PENDING").length;
+  const stats = [
+    ["Institutes", db.institutes.length],
+    ["Pending approval", pendingCount],
+    ["Total students (all institutes)", db.students.length],
+  ];
+  const rows = db.institutes.map((i) => {
+    const isRenaming = renamingInstituteId === i.id;
+    const nameCell = isRenaming
+      ? `<div style="display:flex;gap:6px;align-items:center;">
+          <input id="renameInput_${i.id}" value="${i.name.replace(/"/g, "&quot;")}" style="min-width:160px;padding:6px 8px;font-size:13.5px;" />
+          <button class="btn btn-sm btn-primary" onclick="saveRenameInstitute('${i.id}')">Save</button>
+          <button class="btn btn-sm btn-outline" onclick="cancelRenameInstitute()">Cancel</button>
+        </div>`
+      : `<span style="display:inline-flex;align-items:center;gap:8px;">
+          ${i.logoDataUrl ? `<img src="${i.logoDataUrl}" alt="" style="height:20px;width:20px;object-fit:contain;border-radius:4px;border:1px solid var(--border);background:#fff;" />` : ""}
+          ${i.name}
+          <button type="button" onclick="startRenameInstitute('${i.id}')" title="Correct name" aria-label="Correct name" style="background:none;border:none;color:var(--text-faint);cursor:pointer;padding:2px;display:inline-flex;">${ICONS.pencil}</button>
+        </span>`;
+    const resetPanel = saJustResetPasswordFor === i.id ? `
+      <tr>
+        <td colspan="6" style="padding:0;">
+          <div style="margin:0 14px 12px;border:1px solid color-mix(in srgb, var(--success) 30%, transparent);background:var(--success-soft);border-radius:8px;padding:10px 12px;">
+            <div style="font-size:13px;font-weight:600;color:var(--success);">Password reset for ${i.name}</div>
+            <p style="color:var(--text-muted);font-size:12.5px;margin-top:4px;">New temporary password — share it with the institute now, it won't be shown again:</p>
+            <div class="mono" style="font-size:15px;margin-top:4px;">${saJustResetPasswordValue}</div>
+          </div>
+        </td>
+      </tr>` : "";
+    const isDeleting = deletingInstituteId === i.id;
+    const deletePanel = isDeleting ? `
+      <tr>
+        <td colspan="6" style="padding:0;">
+          <div style="margin:0 14px 12px;border:1px solid color-mix(in srgb, var(--danger) 30%, transparent);background:var(--danger-soft);border-radius:8px;padding:10px 12px;">
+            <div style="font-size:13px;font-weight:600;color:var(--danger);">Delete ${i.name}?</div>
+            <p style="color:var(--text-muted);font-size:12.5px;margin-top:4px;">This removes ${studentCount(i.id)} student${studentCount(i.id) === 1 ? "" : "s"} too, and can't be undone.</p>
+            <div style="display:flex;gap:10px;margin-top:10px;">
+              <button class="btn btn-sm btn-primary" style="background:var(--danger);border-color:var(--danger);" onclick="confirmDeleteInstitute('${i.id}')">Confirm delete</button>
+              <button class="btn btn-sm btn-outline" onclick="cancelDeleteInstitute()">Cancel</button>
+            </div>
+          </div>
+        </td>
+      </tr>` : "";
+    return `
+    <tr>
+      <td>${nameCell}</td>
+      <td class="mono" style="color:var(--text-muted);">${i.slug}</td>
+      <td>${statusBadge(i.status)}</td>
+      <td>${studentCount(i.id)}</td>
+      <td>${fmtDate(i.createdAt)}</td>
+      <td style="text-align:right;white-space:nowrap;">
+        ${i.status === "PENDING" ? `<button class="btn btn-sm btn-primary" onclick="approveInstitute('${i.id}')">Approve</button>` : ""}
+        ${i.status === "APPROVED" ? `<button class="btn btn-sm btn-outline" onclick="suspendInstitute('${i.id}')">Block</button>` : ""}
+        ${i.status === "SUSPENDED" ? `<button class="btn btn-sm btn-outline" onclick="approveInstitute('${i.id}')">Reactivate</button>` : ""}
+        <button class="btn btn-sm btn-outline" onclick="superAdminResetInstitutePassword('${i.id}')">Reset password</button>
+        <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:color-mix(in srgb, var(--danger) 40%, var(--border));" onclick="startDeleteInstitute('${i.id}')">Delete</button>
+      </td>
+    </tr>${resetPanel}${deletePanel}`;
+  }).join("");
+  return superAdminChrome(`
+    <h1 style="font-size:22px;margin-bottom:20px;">Institutes</h1>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px;">
+      ${stats.map(([label, value]) => `<div class="card card-pad"><div style="font-size:30px;font-weight:700;">${value}</div><div style="color:var(--text-muted);font-size:13px;margin-top:4px;">${label}</div></div>`).join("")}
+    </div>
+    <div class="card" style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Institute</th><th>Slug</th><th>Status</th><th>Students</th><th>Registered</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px;">No institutes yet.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `);
+}
+function approveInstitute(id) {
+  const i = db.institutes.find((x) => x.id === id);
+  if (i) i.status = "APPROVED";
+  render();
+}
+function suspendInstitute(id) {
+  const i = db.institutes.find((x) => x.id === id);
+  if (i) i.status = "SUSPENDED";
+  render();
+}
+function startRenameInstitute(id) {
+  renamingInstituteId = id;
+  render();
+}
+function cancelRenameInstitute() {
+  renamingInstituteId = null;
+  render();
+}
+function saveRenameInstitute(id) {
+  const input = document.getElementById("renameInput_" + id);
+  const newName = (input?.value || "").trim();
+  const i = db.institutes.find((x) => x.id === id);
+  if (i && newName) i.name = newName; // slug stays as originally generated — login links keep working
+  renamingInstituteId = null;
+  render();
+}
+function superAdminResetInstitutePassword(id) {
+  const i = db.institutes.find((x) => x.id === id);
+  if (!i) return;
+  const newPassword = randomCode(10);
+  i.adminPassword = newPassword; // demo stand-in for scrypt-hashing + updating the tenant admin's User.passwordHash
+  saJustResetPasswordFor = id;
+  saJustResetPasswordValue = newPassword;
+  render();
+}
+function startDeleteInstitute(id) {
+  deletingInstituteId = id;
+  render();
+}
+function cancelDeleteInstitute() {
+  deletingInstituteId = null;
+  render();
+}
+function confirmDeleteInstitute(id) {
+  const i = db.institutes.find((x) => x.id === id);
+  if (!i) return;
+  db.institutes = db.institutes.filter((x) => x.id !== id);
+  db.students = db.students.filter((s) => s.instituteId !== id); // cascade, matches an FK ON DELETE CASCADE
+  deletingInstituteId = null;
+  render();
+}
+
+function adminChrome(active, inner) {
+  const tabs = [["dashboard", "Dashboard", "/admin/dashboard"], ["students", "Students", "/admin/students"], ["settings", "Settings", "/admin/settings"]];
+  const inst = db.institutes.find((i) => i.id === session?.instituteId);
+  return `
+  <div style="border-bottom:1px solid var(--border);background:var(--bg-subtle);">
+    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;padding:12px clamp(16px,4vw,32px);gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:22px;">
+        <span style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;">
+          ${inst && inst.logoDataUrl ? `<img src="${inst.logoDataUrl}" alt="" style="height:20px;width:20px;object-fit:contain;border-radius:4px;" />` : ""}
+          ${inst ? inst.name : "Certivo Admin"}
+        </span>
+        <nav style="display:flex;gap:16px;">
+          ${tabs.map(([key, label, path]) => `<a href="#${path}" style="font-size:13.5px;color:${active === key ? "var(--text)" : "var(--text-muted)"};font-weight:${active === key ? "600" : "400"};text-decoration:none;">${label}</a>`).join("")}
+        </nav>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="signOutAdmin()">Sign out</button>
+    </div>
+  </div>
+  <div class="wrap" style="padding:28px clamp(16px,4vw,32px) 56px;">${inner}</div>`;
+}
+function signOutAdmin() {
+  const inst = db.institutes.find((i) => i.id === session?.instituteId);
+  session = null;
+  nav(inst ? "/admin/login/" + inst.slug : "/admin/login");
+}
+
+// Institute admin's own profile: contact info, address, logo. Name
+// correction stays Super-Admin-only (it's tied to identity/approval, per
+// the earlier round) — everything else here is the institute's own to
+// keep current, no platform approval needed.
+function screenAdminSettings() {
+  const inst = db.institutes.find((i) => i.id === session.instituteId);
+  const justSaved = settingsSavedFlash;
+  settingsSavedFlash = false;
+  return adminChrome("settings", `
+    <h1 style="font-size:22px;margin-bottom:20px;">Institute settings</h1>
+    ${justSaved ? `<div class="alert" style="margin-bottom:18px;background:var(--success-soft);color:var(--success);">Changes saved.</div>` : ""}
+    <form id="instSettingsForm" onsubmit="return onSaveInstituteSettings(event)" style="display:flex;flex-direction:column;gap:20px;max-width:560px;">
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:14px;">Contact</h3>
+        <div class="field-grid">
+          ${fieldHtml("Owner / contact name", "ownerName", { required: true, extra: `value="${escAttr(inst.ownerName)}"` })}
+          ${fieldHtml("Owner email", "ownerEmail", { type: "email", required: true, extra: `value="${escAttr(inst.ownerEmail)}" ${EMAIL_PATTERN_ATTR}` })}
+          ${fieldHtml("Owner phone", "ownerPhone", { type: "tel", required: true, extra: `value="${escAttr(inst.ownerPhone)}" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" title="10-digit mobile number"` })}
+        </div>
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:14px;">Address</h3>
+        <div class="field-grid">
+          ${fieldHtml("Address line 1", "addressLine1", { required: true, span2: true, extra: `value="${escAttr(inst.addressLine1)}"` })}
+          ${fieldHtml("City", "city", { required: true, extra: `value="${escAttr(inst.city)}"` })}
+          ${fieldHtml("State", "state", { required: true, extra: `value="${escAttr(inst.state)}"` })}
+          ${fieldHtml("Pincode", "pincode", { required: true, extra: `value="${escAttr(inst.pincode)}"` })}
+        </div>
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:10px;">Logo</h3>
+        ${inst.logoDataUrl ? `<img src="${inst.logoDataUrl}" alt="Current logo" style="height:48px;max-width:160px;object-fit:contain;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;display:block;margin-bottom:10px;" />` : `<p style="color:var(--text-muted);font-size:13px;margin-bottom:10px;">No logo uploaded yet.</p>`}
+        <label for="f_logo" style="font-size:13px;color:var(--text-muted);">Replace logo (PNG or JPEG, max 200KB)</label>
+        <input id="f_logo" name="logo" type="file" accept="image/png,image/jpeg" onchange="previewInstituteLogo(this, 'logoPreviewSettings', 'logoErrorSettings')" style="display:block;margin-top:6px;" />
+        <div id="logoErrorSettings"></div>
+        <img id="logoPreviewSettings" hidden style="margin-top:8px;max-height:56px;max-width:100%;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;" />
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:4px;">Certificate branding</h3>
+        <p style="color:var(--text-muted);font-size:12.5px;margin-bottom:14px;">Shown on every certificate this institute issues from now on — past certificates already issued aren't changed.</p>
+        <div class="field-grid">
+          ${fieldHtml("Tagline", "tagline", { placeholder: "e.g. Skills for tomorrow", span2: true, extra: `value="${escAttr(inst.tagline)}"` })}
+        </div>
+        <div style="margin-top:16px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+          <div>
+            <div class="field" style="margin-bottom:12px;">
+              <label for="f_centreHeadName">Centre Head name</label>
+              <input id="f_centreHeadName" name="centreHeadName" type="text" value="${escAttr(inst.centreHeadName)}" placeholder="e.g. Rohit Verma" />
+            </div>
+            ${inst.centreHeadSignatureDataUrl ? `<img src="${inst.centreHeadSignatureDataUrl}" alt="Current Centre Head signature" style="height:42px;max-width:100%;object-fit:contain;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;display:block;margin-bottom:8px;" />` : `<p style="color:var(--text-muted);font-size:13px;margin-bottom:8px;">No signature uploaded yet.</p>`}
+            <label for="f_centreHeadSignature" style="font-size:13px;color:var(--text-muted);">Replace Centre Head signature (PNG or JPEG, max 200KB)</label>
+            <input id="f_centreHeadSignature" name="centreHeadSignature" type="file" accept="image/png,image/jpeg" onchange="previewInstituteLogo(this, 'centreHeadSigPreviewSettings', 'centreHeadSigErrorSettings')" style="display:block;margin-top:6px;" />
+            <div id="centreHeadSigErrorSettings"></div>
+            <img id="centreHeadSigPreviewSettings" hidden style="margin-top:8px;max-height:48px;max-width:100%;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;" />
+          </div>
+          <div>
+            <div class="field" style="margin-bottom:12px;">
+              <label for="f_authorityName">Authority name</label>
+              <input id="f_authorityName" name="authorityName" type="text" value="${escAttr(inst.authorityName)}" placeholder="e.g. Dr. Priya Sharma, Director" />
+            </div>
+            ${inst.authoritySignatureDataUrl ? `<img src="${inst.authoritySignatureDataUrl}" alt="Current Authority signature" style="height:42px;max-width:100%;object-fit:contain;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;display:block;margin-bottom:8px;" />` : `<p style="color:var(--text-muted);font-size:13px;margin-bottom:8px;">No signature uploaded yet.</p>`}
+            <label for="f_authoritySignature" style="font-size:13px;color:var(--text-muted);">Replace Authority signature (PNG or JPEG, max 200KB)</label>
+            <input id="f_authoritySignature" name="authoritySignature" type="file" accept="image/png,image/jpeg" onchange="previewInstituteLogo(this, 'authoritySigPreviewSettings', 'authoritySigErrorSettings')" style="display:block;margin-top:6px;" />
+            <div id="authoritySigErrorSettings"></div>
+            <img id="authoritySigPreviewSettings" hidden style="margin-top:8px;max-height:48px;max-width:100%;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;" />
+          </div>
+        </div>
+      </div>
+      <div id="settingsMsg"></div>
+      <div><button class="btn btn-primary" type="submit">Save changes</button></div>
+    </form>
+  `);
+}
+async function onSaveInstituteSettings(e) {
+  e.preventDefault();
+  const inst = db.institutes.find((i) => i.id === session.instituteId);
+  const f = new FormData(e.target);
+  const ownerName = (f.get("ownerName") || "").trim();
+  const ownerEmail = (f.get("ownerEmail") || "").trim();
+  const ownerPhone = (f.get("ownerPhone") || "").trim();
+  const addressLine1 = (f.get("addressLine1") || "").trim();
+  const city = (f.get("city") || "").trim();
+  const state = (f.get("state") || "").trim();
+  const pincode = (f.get("pincode") || "").trim();
+  const logoFile = f.get("logo");
+  const tagline = (f.get("tagline") || "").trim() || null;
+  const centreHeadName = (f.get("centreHeadName") || "").trim() || null;
+  const centreHeadSignatureFile = f.get("centreHeadSignature");
+  const authorityName = (f.get("authorityName") || "").trim() || null;
+  const authoritySignatureFile = f.get("authoritySignature");
+  const msgEl = document.getElementById("settingsMsg");
+
+  if (!ownerName || !ownerEmail || !ownerPhone || !addressLine1 || !city || !state || !pincode) {
+    msgEl.innerHTML = `<div class="alert alert-danger">All fields are required.</div>`;
+    return false;
+  }
+  if (!isValidEmail(ownerEmail)) { msgEl.innerHTML = `<div class="alert alert-danger">That email address doesn't look valid.</div>`; return false; }
+  if (!isValidIndianMobile(ownerPhone)) { msgEl.innerHTML = `<div class="alert alert-danger">Phone must be a valid 10-digit mobile number.</div>`; return false; }
+
+  // Each image field is independent and optional: leaving a file input
+  // untouched (size 0 — nothing chosen) keeps whatever is already saved,
+  // same rule the real app's admin settings action follows.
+  if (logoFile && logoFile.size > 0) {
+    try {
+      const dataUrl = await readFileAsDataUrl(logoFile);
+      if (dataUrl) inst.logoDataUrl = dataUrl;
+    } catch (err) {
+      msgEl.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      return false;
+    }
+  }
+  if (centreHeadSignatureFile && centreHeadSignatureFile.size > 0) {
+    try {
+      const dataUrl = await readFileAsDataUrl(centreHeadSignatureFile);
+      if (dataUrl) inst.centreHeadSignatureDataUrl = dataUrl;
+    } catch (err) {
+      msgEl.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      return false;
+    }
+  }
+  if (authoritySignatureFile && authoritySignatureFile.size > 0) {
+    try {
+      const dataUrl = await readFileAsDataUrl(authoritySignatureFile);
+      if (dataUrl) inst.authoritySignatureDataUrl = dataUrl;
+    } catch (err) {
+      msgEl.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+      return false;
+    }
+  }
+  inst.ownerName = ownerName;
+  inst.ownerEmail = ownerEmail;
+  inst.ownerPhone = ownerPhone;
+  inst.addressLine1 = addressLine1;
+  inst.city = city;
+  inst.state = state;
+  inst.pincode = pincode;
+  inst.tagline = tagline;
+  inst.centreHeadName = centreHeadName;
+  inst.authorityName = authorityName;
+  settingsSavedFlash = true;
+  render();
+  return false;
+}
+
+function screenAdminDashboard() {
+  const mine = db.students.filter((s) => s.instituteId === session.instituteId);
+  const total = mine.length;
+  const certs = mine.filter((s) => s.certificateStatus === "ACTIVE").length;
+  const regPending = mine.filter((s) => s.registrationFeePaise != null && !s.registrationFeePaid).length;
+  const certPending = mine.filter((s) => s.certificateFeePaise != null && !s.certificateFeePaid).length;
+  const stats = [["Students registered", total], ["Certificates issued", certs], ["Registration fees pending", regPending], ["Certificate fees pending", certPending]];
+  return adminChrome("dashboard", `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+      <h1 style="font-size:22px;">Dashboard</h1>
+      <button class="btn btn-primary" onclick="nav('/admin/students/new')">Register a student</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+      ${stats.map(([label, value]) => `<div class="card card-pad"><div style="font-size:30px;font-weight:700;">${value}</div><div style="color:var(--text-muted);font-size:13px;margin-top:4px;">${label}</div></div>`).join("")}
+    </div>
+  `);
+}
+
+// A8: the list used to render every matching student with no cap and no
+// page controls — fine at demo scale, but the real fix (page-based
+// pagination, 25/page) is reproduced here so it's visible with real data
+// too, not just described. `studentsPage` resets to 1 whenever the search
+// text changes, matching how a real search box behaves.
+const STUDENTS_PAGE_SIZE = 25;
+let studentsPage = 1;
+function renderAdminStudentRows(list) {
+  const rows = list.map((s) => `
+    <tr>
+      <td class="mono">${s.code}</td>
+      <td>${s.fullName}</td>
+      <td>${s.registrationFeePaise == null ? '<span style="color:var(--text-faint);">—</span>' : s.registrationFeePaid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-warning">Pending</span>'}</td>
+      <td>${s.certificateStatus === "ACTIVE" ? '<span class="badge badge-success">Issued</span>' : s.certificateStatus === "REVOKED" ? '<span class="badge badge-danger">Revoked</span>' : "—"}</td>
+      <td style="text-align:right;"><a href="#/admin/students/${s.id}" style="color:var(--brand);text-decoration:underline;font-size:13px;">View</a></td>
+    </tr>`).join("");
+  return rows || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">No students match.</td></tr>`;
+}
+function renderStudentsPagination(totalCount, totalPages) {
+  if (totalCount === 0) return "";
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:13px;color:var(--text-muted);flex-wrap:wrap;gap:10px;">
+    <span>Page ${studentsPage} of ${totalPages} (${totalCount} student${totalCount === 1 ? "" : "s"} total)</span>
+    <div style="display:flex;gap:8px;">
+      <button type="button" class="btn btn-sm btn-outline" ${studentsPage <= 1 ? "disabled" : ""} onclick="changeStudentsPage(-1)">Previous</button>
+      <button type="button" class="btn btn-sm btn-outline" ${studentsPage >= totalPages ? "disabled" : ""} onclick="changeStudentsPage(1)">Next</button>
+    </div>
+  </div>`;
+}
+function getFilteredStudents() {
+  const input = document.getElementById("studentSearch");
+  const q = (input?.value || "").trim().toLowerCase();
+  const mine = db.students.filter((s) => s.instituteId === session.instituteId);
+  return q
+    ? mine.filter((s) => s.fullName.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
+    : mine;
+}
+// Updates the table body + pagination footer directly, without a full
+// render() — a full re-render on every keystroke would rebuild the search
+// input itself and drop focus/cursor position mid-type.
+function updateStudentsList() {
+  const filtered = getFilteredStudents();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / STUDENTS_PAGE_SIZE));
+  studentsPage = Math.min(Math.max(1, studentsPage), totalPages);
+  const pageItems = filtered.slice((studentsPage - 1) * STUDENTS_PAGE_SIZE, studentsPage * STUDENTS_PAGE_SIZE);
+  const body = document.getElementById("studentsTableBody");
+  if (body) body.innerHTML = renderAdminStudentRows(pageItems);
+  const pager = document.getElementById("studentsPagination");
+  if (pager) pager.innerHTML = renderStudentsPagination(filtered.length, totalPages);
+}
+function filterAdminStudents() {
+  studentsPage = 1; // a new search always starts back at page 1
+  updateStudentsList();
+}
+function changeStudentsPage(delta) {
+  studentsPage += delta;
+  updateStudentsList();
+}
+function screenAdminStudents() {
+  studentsPage = 1;
+  const mine = db.students.filter((s) => s.instituteId === session.instituteId);
+  const totalPages = Math.max(1, Math.ceil(mine.length / STUDENTS_PAGE_SIZE));
+  const pageItems = mine.slice(0, STUDENTS_PAGE_SIZE);
+  return adminChrome("students", `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+      <h1 style="font-size:22px;">Students</h1>
+      <button class="btn btn-primary" onclick="nav('/admin/students/new')">Register a student</button>
+    </div>
+    <input id="studentSearch" placeholder="Search by name or student ID…" oninput="filterAdminStudents()" style="margin-bottom:14px;max-width:320px;width:100%;" />
+    <div class="card" style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Code</th><th>Name</th><th>Registration fee</th><th>Certificate</th><th></th></tr></thead>
+        <tbody id="studentsTableBody">${renderAdminStudentRows(pageItems)}</tbody>
+      </table>
+    </div>
+    <div id="studentsPagination">${renderStudentsPagination(mine.length, totalPages)}</div>
+  `);
+}
+
+function screenAdminStudentNew() {
+  return adminChrome("students", `
+    <h1 style="font-size:22px;margin-bottom:20px;">Register a student</h1>
+    <form id="regForm" onsubmit="return onRegisterStudent(event)" style="display:flex;flex-direction:column;gap:20px;">
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:14px;">Student details</h3>
+        <div class="field-grid">
+          ${fieldHtml("Full name", "fullName", { required: true })}
+          ${fieldHtml("Course", "courseName", { required: true, placeholder: "e.g. Full Stack Web Development" })}
+          ${fieldHtml("Email", "email", { type: "email", placeholder: "name@example.com", extra: EMAIL_PATTERN_ATTR })}
+          ${fieldHtml("Phone", "phone", { type: "tel", placeholder: "9876543210", extra: 'inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" title="10-digit mobile number"' })}
+          ${fieldHtml("Date of birth", "dateOfBirth", { type: "date", extra: `max="${todayIso()}"` })}
+          ${fieldHtml("Gender", "gender")}
+          ${fieldHtml("Guardian name", "guardianName")}
+          ${fieldHtml("Completion date", "completionDate", { type: "date", extra: `max="${todayIso()}"`, help: "Defaults to today if left blank." })}
+        </div>
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:14px;">Address</h3>
+        <div class="field-grid">
+          ${fieldHtml("Address line 1", "addressLine1", { span2: true })}
+          ${fieldHtml("City", "city")}
+          ${fieldHtml("State", "state")}
+          ${fieldHtml("Pincode", "pincode")}
+        </div>
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;">Fees</h3>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:2px;margin-bottom:14px;">Shown to the student transparently in their portal. Collected manually for now — mark paid from the student's page.</p>
+        <div class="field-grid">
+          ${fieldHtml("Registration fee (₹)", "registrationFeeRupees", { type: "number", extra: 'min="0" step="1"' })}
+          ${fieldHtml("Certificate fee (₹)", "certificateFeeRupees", { type: "number", extra: 'min="0" step="1"' })}
+        </div>
+      </div>
+      <div id="regError"></div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" type="submit">Register student</button>
+        <button class="btn btn-outline" type="button" onclick="nav('/admin/students')">Cancel</button>
+      </div>
+    </form>
+  `);
+}
+function onRegisterStudent(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const fullName = (f.get("fullName") || "").trim();
+  const courseName = (f.get("courseName") || "").trim();
+  const email = (f.get("email") || "").trim();
+  const phone = (f.get("phone") || "").trim();
+  if (!fullName || !courseName) {
+    document.getElementById("regError").innerHTML = `<div class="alert alert-danger">Full name and course are required.</div>`;
+    return false;
+  }
+  if (email && !isValidEmail(email)) {
+    document.getElementById("regError").innerHTML = `<div class="alert alert-danger">That email address doesn't look valid.</div>`;
+    return false;
+  }
+  if (phone && !isValidIndianMobile(phone)) {
+    document.getElementById("regError").innerHTML = `<div class="alert alert-danger">Phone must be a valid 10-digit mobile number.</div>`;
+    return false;
+  }
+  // B4/D4: validate fee amounts and dates before anything is created —
+  // matches the real app's registerStudent (parseOptionalRupeesToPaise /
+  // parseOptionalPastOrTodayDate).
+  const regFeeResult = parseOptionalRupeesToPaise(f.get("registrationFeeRupees"), "Registration fee");
+  const certFeeResult = parseOptionalRupeesToPaise(f.get("certificateFeeRupees"), "Certificate fee");
+  const dobResult = validateNotFutureDate(f.get("dateOfBirth"), "Date of birth");
+  const completionResult = validateNotFutureDate(f.get("completionDate"), "Completion date");
+  const firstError = regFeeResult.error || certFeeResult.error || dobResult.error || completionResult.error;
+  if (firstError) {
+    document.getElementById("regError").innerHTML = `<div class="alert alert-danger">${firstError}</div>`;
+    return false;
+  }
+  const seq = db.nextSeq++; // internal id only — not shown to anyone, doesn't need to be random
+  const code = generateUniqueStudentCode(); // login ID — random, not sequential/guessable
+  const tempPassword = randomCode(10);
+  const certCode = `${CERT_PREFIX}-${new Date().getFullYear()}-${randomCode(10)}`;
+  const regFee = regFeeResult.paise;
+  const certFee = certFeeResult.paise;
+
+  db.students.push({
+    id: "s" + seq,
+    instituteId: session.instituteId,
+    code, password: tempPassword,
+    fullName, email: f.get("email") || null, phone: f.get("phone") || null,
+    dateOfBirth: f.get("dateOfBirth") || null, gender: f.get("gender") || null,
+    guardianName: f.get("guardianName") || null,
+    addressLine1: f.get("addressLine1") || null, city: f.get("city") || null,
+    state: f.get("state") || null, pincode: f.get("pincode") || null,
+    courseName, completionDate: f.get("completionDate") || new Date().toISOString().slice(0, 10),
+    registrationFeePaise: regFee, registrationFeePaid: false,
+    certificateCode: certCode, certificateStatus: "ACTIVE",
+    certificateRevokedReason: null, certificateRevokedAt: null,
+    certificateFeePaise: certFee, certificateFeePaid: false,
+    certificateDownloadCount: 0,
+  });
+
+  document.getElementById("app").innerHTML = adminChrome("students", `
+    <div class="card card-pad">
+      <div style="color:var(--success);font-weight:600;font-size:16px;">Student registered</div>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">Share these with the student — the password is shown only once.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-top:18px;">
+        <div class="kv"><dt>Student ID (login)</dt><dd class="mono">${code}</dd></div>
+        <div class="kv"><dt>Temporary password</dt><dd class="mono">${tempPassword}</dd></div>
+        <div class="kv"><dt>Certificate code</dt><dd class="mono">${certCode}</dd></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;">
+        <button class="btn btn-outline" onclick="nav('/admin/students')">Back to students</button>
+        <button class="btn btn-primary" onclick="nav('/admin/students/new')">Register another</button>
+      </div>
+    </div>
+  `);
+  return false;
+}
+
+function screenAdminStudentDetail(id) {
+  const s = db.students.find((x) => x.id === id && x.instituteId === session.instituteId);
+  if (!s) return adminChrome("students", `${backLink("Back to students", "/admin/students")}<p style="color:var(--text-muted);margin-top:10px;">Student not found.</p>`);
+  const isEditing = editingStudentId === s.id;
+  const isRevoking = revokingCertFor === s.id;
+  return adminChrome("students", `
+    ${backLink("Back to students", "/admin/students")}
+    <h1 style="font-size:22px;">${s.fullName}</h1>
+    <p class="mono" style="color:var(--text-muted);font-size:13px;margin-top:2px;">${s.code}</p>
+    <div style="display:flex;flex-direction:column;gap:18px;margin-top:20px;">
+      <div class="card card-pad">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <h3 style="font-size:14.5px;margin:0;">Details</h3>
+          ${isEditing ? "" : `<button class="btn btn-sm btn-outline" onclick="startEditStudent('${s.id}')">Edit details</button>`}
+        </div>
+        ${isEditing ? `
+          <form id="editStudentForm" onsubmit="return onSaveStudentEdit(event, '${s.id}')">
+            <div class="field-grid">
+              ${fieldHtml("Full name", "fullName", { required: true, extra: `value="${escAttr(s.fullName)}"` })}
+              ${fieldHtml("Course", "courseName", { required: true, extra: `value="${escAttr(s.courseName)}"` })}
+              ${fieldHtml("Email", "email", { type: "email", extra: `value="${escAttr(s.email)}" ${EMAIL_PATTERN_ATTR}` })}
+              ${fieldHtml("Phone", "phone", { type: "tel", extra: `value="${escAttr(s.phone)}" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" title="10-digit mobile number"` })}
+              ${fieldHtml("Date of birth", "dateOfBirth", { type: "date", extra: `value="${escAttr(s.dateOfBirth)}" max="${todayIso()}"` })}
+              ${fieldHtml("Gender", "gender", { extra: `value="${escAttr(s.gender)}"` })}
+              ${fieldHtml("Guardian name", "guardianName", { extra: `value="${escAttr(s.guardianName)}"` })}
+              ${fieldHtml("Completion date", "completionDate", { type: "date", extra: `value="${escAttr(s.completionDate)}" max="${todayIso()}"` })}
+              ${fieldHtml("Address line 1", "addressLine1", { span2: true, extra: `value="${escAttr(s.addressLine1)}"` })}
+              ${fieldHtml("City", "city", { extra: `value="${escAttr(s.city)}"` })}
+              ${fieldHtml("State", "state", { extra: `value="${escAttr(s.state)}"` })}
+              ${fieldHtml("Pincode", "pincode", { extra: `value="${escAttr(s.pincode)}"` })}
+            </div>
+            <div id="editStudentMsg"></div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+              <button class="btn btn-primary" type="submit">Save</button>
+              <button class="btn btn-outline" type="button" onclick="cancelEditStudent()">Cancel</button>
+            </div>
+          </form>
+        ` : `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+          <div class="kv"><dt>Course</dt><dd>${s.courseName || "—"}</dd></div>
+          <div class="kv"><dt>Completion date</dt><dd>${s.completionDate ? fmtDate(s.completionDate) : "—"}</dd></div>
+          <div class="kv"><dt>Email</dt><dd>${s.email || "—"}</dd></div>
+          <div class="kv"><dt>Phone</dt><dd>${s.phone || "—"}</dd></div>
+          <div class="kv"><dt>Date of birth</dt><dd>${s.dateOfBirth ? fmtDate(s.dateOfBirth) : "—"}</dd></div>
+          <div class="kv"><dt>Guardian</dt><dd>${s.guardianName || "—"}</dd></div>
+          <div class="kv" style="grid-column:1/-1;"><dt>Address</dt><dd>${[s.addressLine1, s.city, s.state, s.pincode].filter(Boolean).join(", ") || "—"}</dd></div>
+        </div>
+        `}
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:6px;">Login access</h3>
+        <p style="color:var(--text-muted);font-size:13px;">Passwords are hashed and never stored in plaintext in the real app, so there's no existing password to display here — issue a fresh one whenever the student needs it.</p>
+        ${justResetPasswordFor === s.id ? `
+          <div style="margin-top:10px;border:1px solid color-mix(in srgb, var(--success) 30%, transparent);background:var(--success-soft);border-radius:8px;padding:10px 12px;">
+            <div style="font-size:13.5px;font-weight:600;color:var(--success);">Password reset</div>
+            <p style="color:var(--text-muted);font-size:12.5px;margin-top:4px;">New temporary password — share it with the student now, it won't be shown again:</p>
+            <div class="mono" style="font-size:15px;margin-top:4px;">${justResetPasswordValue}</div>
+          </div>
+        ` : `<button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="resetStudentPassword('${s.id}')">Reset password</button>`}
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:6px;">Registration fee</h3>
+        ${feeRow("", s.registrationFeePaise, s.registrationFeePaid)}
+        ${s.registrationFeePaise != null && !s.registrationFeePaid ? `<button class="btn btn-sm btn-primary" onclick="markPaid('${s.id}','reg')">Mark paid</button>` : ""}
+      </div>
+      <div class="card card-pad">
+        <h3 style="font-size:14.5px;margin-bottom:10px;">Certificate</h3>
+        <div class="kv" style="margin-bottom:10px;"><dt>Code</dt><dd class="mono">${s.certificateCode}</dd></div>
+        <div class="kv" style="margin-bottom:10px;"><dt>Status</dt><dd>${s.certificateStatus === "ACTIVE" ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Revoked</span>'}</dd></div>
+        ${feeRow("Certificate fee", s.certificateFeePaise, s.certificateFeePaid)}
+        ${s.certificateFeePaise != null && !s.certificateFeePaid ? `<button class="btn btn-sm btn-primary" onclick="markPaid('${s.id}','cert')">Mark paid</button>` : ""}
+        <div style="margin-top:12px;"><a href="#/v/${s.certificateCode}" style="color:var(--brand);text-decoration:underline;font-size:13px;">View public verification page →</a></div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft);">
+          ${s.certificateStatus === "REVOKED" ? `
+            ${s.certificateRevokedReason ? `<p style="color:var(--text-muted);font-size:12.5px;margin-bottom:10px;">Reason: ${s.certificateRevokedReason}</p>` : ""}
+            <button class="btn btn-sm btn-outline" onclick="reactivateCert('${s.id}')">Reactivate certificate</button>
+          ` : isRevoking ? `
+            <label for="revokeReason" style="font-size:13px;color:var(--text-muted);">Reason (shown to you and the student, optional)</label>
+            <textarea id="revokeReason" rows="2" style="width:100%;margin-top:6px;"></textarea>
+            <div style="display:flex;gap:10px;margin-top:10px;">
+              <button class="btn btn-sm btn-primary" style="background:var(--danger);border-color:var(--danger);" onclick="confirmRevokeCert('${s.id}')">Confirm revoke</button>
+              <button class="btn btn-sm btn-outline" onclick="cancelRevokeCert()">Cancel</button>
+            </div>
+          ` : `<button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:color-mix(in srgb, var(--danger) 40%, var(--border));" onclick="startRevokeCert('${s.id}')">Revoke certificate</button>`}
+        </div>
+      </div>
+    </div>
+  `);
+}
+function startEditStudent(id) {
+  editingStudentId = id;
+  render();
+}
+function cancelEditStudent() {
+  editingStudentId = null;
+  render();
+}
+function onSaveStudentEdit(e, id) {
+  e.preventDefault();
+  const s = db.students.find((x) => x.id === id);
+  if (!s) return false;
+  const f = new FormData(e.target);
+  const fullName = (f.get("fullName") || "").trim();
+  const courseName = (f.get("courseName") || "").trim();
+  const email = (f.get("email") || "").trim();
+  const phone = (f.get("phone") || "").trim();
+  const msgEl = document.getElementById("editStudentMsg");
+  if (!fullName || !courseName) {
+    msgEl.innerHTML = `<div class="alert alert-danger" style="margin-top:12px;">Full name and course are required.</div>`;
+    return false;
+  }
+  if (email && !isValidEmail(email)) {
+    msgEl.innerHTML = `<div class="alert alert-danger" style="margin-top:12px;">That email address doesn't look valid.</div>`;
+    return false;
+  }
+  if (phone && !isValidIndianMobile(phone)) {
+    msgEl.innerHTML = `<div class="alert alert-danger" style="margin-top:12px;">Phone must be a valid 10-digit mobile number.</div>`;
+    return false;
+  }
+  s.fullName = fullName;
+  s.courseName = courseName;
+  s.email = email || null;
+  s.phone = phone || null;
+  s.dateOfBirth = f.get("dateOfBirth") || null;
+  s.gender = f.get("gender") || null;
+  s.guardianName = f.get("guardianName") || null;
+  s.completionDate = f.get("completionDate") || s.completionDate;
+  s.addressLine1 = f.get("addressLine1") || null;
+  s.city = f.get("city") || null;
+  s.state = f.get("state") || null;
+  s.pincode = f.get("pincode") || null;
+  editingStudentId = null;
+  render();
+  return false;
+}
+function markPaid(id, which) {
+  const s = db.students.find((x) => x.id === id);
+  if (!s) return;
+  if (which === "reg") { s.registrationFeePaid = true; } else { s.certificateFeePaid = true; }
+  render();
+}
+function resetStudentPassword(id) {
+  const s = db.students.find((x) => x.id === id);
+  if (!s) return;
+  const newPassword = randomCode(10);
+  s.password = newPassword; // demo stand-in for scrypt-hashing + updating User.passwordHash
+  justResetPasswordFor = id;
+  justResetPasswordValue = newPassword;
+  render();
+}
+function startRevokeCert(id) {
+  revokingCertFor = id;
+  render();
+}
+function cancelRevokeCert() {
+  revokingCertFor = null;
+  render();
+}
+function confirmRevokeCert(id) {
+  const s = db.students.find((x) => x.id === id);
+  if (!s) return;
+  const reason = (document.getElementById("revokeReason")?.value || "").trim();
+  s.certificateStatus = "REVOKED";
+  s.certificateRevokedReason = reason || null;
+  s.certificateRevokedAt = new Date().toISOString();
+  revokingCertFor = null;
+  render();
+}
+function reactivateCert(id) {
+  const s = db.students.find((x) => x.id === id);
+  if (!s) return;
+  s.certificateStatus = "ACTIVE";
+  s.certificateRevokedReason = null;
+  s.certificateRevokedAt = null;
+  render();
+}
+
+function screenStudentLogin(error) {
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;">
+    ${backLink("Back to home", "/")}
+    <div class="card card-pad">
+      <h2 style="font-size:18px;">Student sign in</h2>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:2px;">Certivo — view and download your certificate</p>
+      ${error ? `<div class="alert alert-danger" style="margin-top:16px;">That student ID/password combination isn't recognized.</div>` : ""}
+      <form style="display:flex;flex-direction:column;gap:14px;margin-top:18px;" onsubmit="return onStudentLogin(event)">
+        ${fieldHtml("Student ID", "studentCode", { required: true, placeholder: "STU-7K3M9QPX" })}
+        ${passwordFieldHtml("Password", "password", { required: true })}
+        <button class="btn btn-primary" type="submit" style="margin-top:4px;">Sign in</button>
+      </form>
+      <p style="font-size:12px;color:var(--text-faint);margin-top:16px;">Demo student: <span class="mono">STU-7K3M9QPX</span> / <span class="mono">demo1234</span></p>
+      <div style="text-align:center;margin-top:14px;display:flex;flex-direction:column;gap:6px;">
+        <a href="#/student/forgot-password" style="font-size:13px;color:var(--text-muted);text-decoration:underline;">Forgot password?</a>
+        <a href="#/admin/login" style="font-size:13px;color:var(--text-muted);text-decoration:underline;">Institute admin sign in</a>
+      </div>
+    </div>
+  </div>`;
+}
+function onStudentLogin(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const code = (f.get("studentCode") || "").trim().toUpperCase();
+  const password = (f.get("password") || "").trim();
+  const s = db.students.find((x) => x.code === code && x.password === password);
+  if (s) { session = { kind: "student", studentId: s.id }; nav("/student/portal"); }
+  else { render(true); }
+  return false;
+}
+
+function screenForgotPassword() {
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;">
+    <div class="card card-pad">
+      <h2 style="font-size:18px;">Forgot your password?</h2>
+      <p style="color:var(--text-muted);font-size:13.5px;margin-top:2px;">Self-service reset isn't available yet</p>
+      <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;margin-top:16px;">Password reset emails aren't set up yet. For now, please contact your institute's admin — they can look up your account and share your login details again.</p>
+      <a href="mailto:support@example.com" style="display:block;text-align:center;border:1px solid var(--border);border-radius:8px;padding:9px 0;margin-top:12px;font-size:13.5px;text-decoration:underline;color:var(--text);">Email support@example.com</a>
+      <button class="btn btn-outline" style="width:100%;margin-top:10px;" onclick="nav('/student/login')">Back to sign in</button>
+    </div>
+  </div>`;
+}
+
+function studentSignOut() {
+  Object.keys(certPdfUrlCache).forEach(revokeCertPdfCache);
+  session = null;
+  nav("/student/login");
+}
+function studentChrome(inner) {
+  return `
+  <div style="border-bottom:1px solid var(--border);background:var(--bg-subtle);">
+    <div class="wrap-med" style="display:flex;align-items:center;justify-content:space-between;padding:12px clamp(16px,4vw,32px);">
+      <span style="font-weight:600;font-size:14px;">Certivo</span>
+      <button class="btn btn-ghost btn-sm" onclick="studentSignOut()">Sign out</button>
+    </div>
+  </div>
+  <div class="wrap-med" style="padding:28px clamp(16px,4vw,32px) 56px;">${inner}</div>`;
+}
+
+function screenStudentPortal() {
+  const s = db.students.find((x) => x.id === session.studentId);
+  // Gate: a certificate exists the moment it's issued at registration, but
+  // the student only gets to SEE it — details, preview and the download
+  // link, all of it — once the certificate fee is paid. No fee set at all
+  // counts as nothing to wait on. `justOpened` covers the one render right
+  // after previewCertificate() may have just consumed the last free
+  // download and locked it for NEXT time — this view still shows it, same
+  // as the real download route still returns the PDF bytes on the request
+  // that trips the lock; only the following attempt is blocked.
+  const justOpened = certPreviewOpenFor === s.id;
+  const certUnlocked = s.certificateStatus === "ACTIVE" && (s.certificateFeePaise == null || s.certificateFeePaid || justOpened);
+  const certPendingFee = s.certificateStatus === "ACTIVE" && !certUnlocked;
+  const downloadsLeft = Math.max(0, FREE_DOWNLOADS_PER_PAYMENT - s.certificateDownloadCount);
+  return studentChrome(`
+    <h1 style="font-size:22px;">Welcome, ${s.fullName}</h1>
+    <p class="mono" style="color:var(--text-muted);font-size:13px;margin-top:2px;">${s.code}</p>
+
+    <div class="card card-pad" style="margin-top:20px;">
+      <h3 style="font-size:14.5px;margin-bottom:14px;">Your certificate</h3>
+      ${certUnlocked ? `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;">
+          <div class="kv"><dt>Course</dt><dd>${s.courseName}</dd></div>
+          <div class="kv"><dt>Certificate code</dt><dd class="mono">${s.certificateCode}</dd></div>
+          <div class="kv"><dt>Completion date</dt><dd>${fmtDate(s.completionDate)}</dd></div>
+          <div class="kv"><dt>Status</dt><dd><span class="badge badge-success">Active</span></dd></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
+          ${justOpened
+            ? `<button class="btn btn-outline" type="button" onclick="hideCertificatePreview()">Hide preview</button>`
+            : `<button class="btn btn-primary" onclick="previewCertificate('${s.id}')">Preview certificate</button>`}
+          <a href="#/v/${s.certificateCode}"><button class="btn btn-outline" type="button">View public verification page</button></a>
+        </div>
+        ${s.certificateFeePaise != null ? `<p style="font-size:12px;color:var(--text-faint);margin-top:10px;">${downloadsLeft} of ${FREE_DOWNLOADS_PER_PAYMENT} downloads left before you'll need to pay again.</p>` : ""}
+        ${justOpened ? `<div style="margin-top:16px;max-width:520px;">${certificateVisual(s)}</div>` : ""}
+      ` : certPendingFee ? `
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <p style="color:var(--text-muted);font-size:13.5px;line-height:1.6;">Your certificate is ready, but stays hidden until the certificate fee is paid (${fmtMoney(s.certificateFeePaise)}). It — and its download link — will appear here the moment the fee is marked paid.</p>
+          <div><button class="btn btn-sm btn-primary" onclick="payCertificateFee('${s.id}')">Pay ${fmtMoney(s.certificateFeePaise)} now</button></div>
+          <p style="font-size:12px;color:var(--text-faint);">No payment gateway yet — this marks the fee paid directly, same as your institute can. Your institute can also do this for you if you'd rather pay them in person.</p>
+        </div>
+      ` : s.certificateStatus === "REVOKED" ? `
+        <div>
+          <p style="font-size:15px;font-weight:600;color:var(--danger);">Certificate revoked</p>
+          <p style="color:var(--text-muted);font-size:13.5px;margin-top:6px;line-height:1.6;">Your institute has revoked this certificate, so it's no longer downloadable or publicly verifiable.${s.certificateRevokedReason ? ` Reason given: "${s.certificateRevokedReason}"` : ""} Contact your institute if you think this is a mistake.</p>
+        </div>
+      ` : `<p style="color:var(--text-muted);font-size:13.5px;">No certificate has been issued yet.</p>`}
+    </div>
+
+    <div class="card card-pad" style="margin-top:18px;">
+      <h3 style="font-size:14.5px;margin-bottom:6px;">Fees</h3>
+      ${feeRow("Registration fee", s.registrationFeePaise, s.registrationFeePaid)}
+      ${feeRow("Certificate fee", s.certificateFeePaise, s.certificateFeePaid)}
+      <p style="font-size:12px;color:var(--text-faint);margin-top:8px;">Payments are collected by your institute directly for now — this reflects what they've recorded.</p>
+    </div>
+
+    <div class="card card-pad" style="margin-top:18px;">
+      <h3 style="font-size:14.5px;margin-bottom:6px;">Change password</h3>
+      <form onsubmit="return onChangeStudentPassword(event)" style="display:flex;flex-direction:column;gap:12px;margin-top:10px;max-width:360px;">
+        ${passwordFieldHtml("Current password", "currentPassword", { required: true })}
+        ${passwordFieldHtml("New password", "newPassword", { required: true, autocomplete: "new-password" })}
+        ${passwordFieldHtml("Confirm new password", "confirmPassword", { required: true, autocomplete: "new-password" })}
+        <div id="pwChangeMsg"></div>
+        <div><button class="btn btn-sm btn-primary" type="submit">Update password</button></div>
+      </form>
+    </div>
+  `);
+}
+function onChangeStudentPassword(e) {
+  e.preventDefault();
+  const s = db.students.find((x) => x.id === session.studentId);
+  const f = new FormData(e.target);
+  const current = (f.get("currentPassword") || "").trim();
+  const next = (f.get("newPassword") || "").trim();
+  const confirmPw = (f.get("confirmPassword") || "").trim();
+  const msgEl = document.getElementById("pwChangeMsg");
+  if (!s || s.password !== current) {
+    msgEl.innerHTML = `<div class="alert alert-danger">Current password is incorrect.</div>`;
+    return false;
+  }
+  if (next.length < 6) {
+    msgEl.innerHTML = `<div class="alert alert-danger">New password must be at least 6 characters.</div>`;
+    return false;
+  }
+  if (next !== confirmPw) {
+    msgEl.innerHTML = `<div class="alert alert-danger">New password and confirm password don't match.</div>`;
+    return false;
+  }
+  s.password = next;
+  e.target.reset();
+  msgEl.innerHTML = `<div class="alert" style="background:var(--success-soft);color:var(--success);">Password updated.</div>`;
+  return false;
+}
+function previewCertificate(id) {
+  const s = db.students.find((x) => x.id === id);
+  if (!s || s.certificateStatus !== "ACTIVE") return;
+  if (s.certificateFeePaise != null && !s.certificateFeePaid) return; // shouldn't be reachable via the UI, guarded anyway
+  if (s.certificateFeePaise != null) {
+    s.certificateDownloadCount++;
+    // Last free download for this payment cycle — lock it for NEXT time
+    // (this render still shows it, via the justOpened override above).
+    if (s.certificateDownloadCount >= FREE_DOWNLOADS_PER_PAYMENT) {
+      s.certificateFeePaid = false;
+      s.certificateDownloadCount = 0;
+    }
+  }
+  certPreviewOpenFor = id;
+  render(); // render() itself kicks off loadRealCertificatePdf() for the newly-open preview
+}
+function hideCertificatePreview() {
+  certPreviewOpenFor = null;
+  render();
+}
+/** Frees a cached certificate PDF's blob URL (browser memory is finite —
+ * these accumulate otherwise) when it's no longer reachable: on sign-out,
+ * or once a re-generation replaces it with a fresher one. */
+function revokeCertPdfCache(studentId) {
+  const cached = certPdfUrlCache[studentId];
+  if (cached) {
+    URL.revokeObjectURL(cached.url);
+    delete certPdfUrlCache[studentId];
+  }
+}
+/** Builds the input object generateCertificatePdfBytes() expects, straight
+ * from the current student + institute records — branding is read live,
+ * never cached on the student, so an institute editing its logo/signatures
+ * after issuing a certificate is reflected the next time it's previewed. */
+function buildCertificatePdfInput(s, inst) {
+  return {
+    code: s.certificateCode,
+    studentName: s.fullName,
+    instituteName: inst ? inst.name : INSTITUTE_NAME,
+    courseName: s.courseName,
+    completionDate: s.completionDate ? new Date(s.completionDate) : null,
+    issuedAt: s.completionDate ? new Date(s.completionDate) : new Date(),
+    verifyUrl: `${location.origin}${location.pathname}#/v/${s.certificateCode}`,
+    logoDataUrl: inst ? inst.logoDataUrl : null,
+    tagline: inst ? inst.tagline : null,
+    website: null,
+    contactEmail: inst ? inst.ownerEmail : null,
+    addressLine: inst ? [inst.city, inst.state].filter(Boolean).join(", ") || null : null,
+    centreHeadName: inst ? inst.centreHeadName : null,
+    centreHeadSignatureDataUrl: inst ? inst.centreHeadSignatureDataUrl : null,
+    authorityName: inst ? inst.authorityName : null,
+    authoritySignatureDataUrl: inst ? inst.authoritySignatureDataUrl : null,
+  };
+}
+/** Generates the real certificate PDF (via the plain-JS ports of
+ * generate-pdf.ts/qrcode.ts above) and swaps it into the #certPdfViewer
+ * container the current render already painted, replacing the instant CSS
+ * mock. Never throws outward — on any failure the CSS mock (already on
+ * screen) just stays put, so a PDF-generation hiccup never blanks the page. */
+async function loadRealCertificatePdf(s) {
+  const inst = db.institutes.find((i) => i.id === s.instituteId);
+  const input = buildCertificatePdfInput(s, inst);
+  const cacheKey = JSON.stringify(input, (k, v) => (v instanceof Date ? v.toISOString() : v));
+  const cached = certPdfUrlCache[s.id];
+  if (cached && cached.key === cacheKey) {
+    showCertificatePdf(s.id, cached.url, s.certificateCode);
+    return;
+  }
+  try {
+    const bytes = await generateCertificatePdfBytes(input);
+    // Bail if the user navigated away while we were generating.
+    if (certPreviewOpenFor !== s.id) return;
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    if (cached) URL.revokeObjectURL(cached.url);
+    certPdfUrlCache[s.id] = { key: cacheKey, url };
+    showCertificatePdf(s.id, url, s.certificateCode);
+  } catch (err) {
+    console.error("Certificate PDF generation failed — showing the design preview instead:", err);
+    // Leave the CSS mock visible; nothing to swap in.
+  }
+}
+function showCertificatePdf(studentId, url, certificateCode) {
+  if (certPreviewOpenFor !== studentId) return; // stale async callback, preview closed/switched since
+  const viewer = document.getElementById("certPdfViewer");
+  const fallback = document.getElementById("certCssFallback");
+  if (!viewer) return; // portal navigated away before generation finished
+  viewer.innerHTML = `
+    <iframe src="${url}" title="Certificate PDF" style="width:100%;height:400px;border:1px solid var(--border);border-radius:10px;background:#fff;"></iframe>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+      <span style="font-size:11.5px;color:var(--text-faint);">Real generated PDF — includes a scannable verification QR code.</span>
+      <a href="${url}" download="certificate-${certificateCode}.pdf" style="font-size:12px;text-decoration:underline;color:var(--text-muted);white-space:nowrap;margin-left:10px;">Open / download</a>
+    </div>`;
+  if (fallback) fallback.style.display = "none";
+}
+function payCertificateFee(id) {
+  const s = db.students.find((x) => x.id === id);
+  if (!s) return;
+  s.certificateFeePaid = true;
+  s.certificateDownloadCount = 0; // a fresh payment earns a fresh download allowance
+  render();
+}
+function certificateVisual(s) {
+  const inst = db.institutes.find((i) => i.id === s.instituteId);
+  const instName = inst ? inst.name : INSTITUTE_NAME;
+  return `
+  <div id="certPdfViewer"></div>
+  <div id="certCssFallback">
+    <div class="cert-frame">
+      <div class="cert-inner">
+        ${inst && inst.logoDataUrl ? `<img src="${inst.logoDataUrl}" alt="${instName} logo" style="height:42px;max-width:140px;object-fit:contain;margin:0 auto 10px;display:block;" />` : ""}
+        <div class="cert-institute">${instName.toUpperCase()}</div>
+        <div class="cert-title">CERTIFICATE OF COMPLETION</div>
+        <div class="cert-sub">This is to certify that</div>
+        <div class="cert-name">${s.fullName}</div>
+        <div class="cert-sub">has successfully completed the course</div>
+        <div class="cert-course">${s.courseName}</div>
+        <div class="cert-date">Completed on ${fmtDate(s.completionDate)}</div>
+        <div class="cert-code mono">Certificate Code: ${s.certificateCode}</div>
+        <div class="cert-verify">Verify at certivo.example/v/${s.certificateCode}</div>
+      </div>
+    </div>
+    <p style="font-size:11.5px;color:var(--text-faint);margin-top:8px;text-align:center;">Generating the real certificate PDF… this design preview shows while it loads.</p>
+  </div>`;
+}
+
+function screenVerify(code) {
+  const s = db.students.find((x) => x.certificateCode === code && x.certificateStatus === "ACTIVE");
+  const inst = s ? db.institutes.find((i) => i.id === s.instituteId) : null;
+  const instName = inst ? inst.name : INSTITUTE_NAME;
+  return `
+  <div class="wrap-narrow" style="padding:64px 0;text-align:center;">
+    <div style="text-align:left;">${backLink("Back", "history")}</div>
+    <a href="#/" style="font-weight:600;font-size:14px;">Certivo</a>
+    ${s && inst && inst.logoDataUrl ? `<img src="${inst.logoDataUrl}" alt="${instName} logo" style="height:36px;max-width:130px;object-fit:contain;display:block;margin:14px auto 0;" />` : ""}
+    <h1 style="font-size:17px;font-weight:700;margin-top:18px;">Certificate verification</h1>
+    <p style="color:var(--text-muted);font-size:12.5px;margin-top:4px;">A public verification service — no account or approval needed, results are shown instantly to anyone with the code.</p>
+    ${s ? `
+      <div class="card card-pad" style="margin-top:16px;text-align:center;">
+        <div style="color:var(--success);">${ICONS.shield.replace('<svg ', '<svg width="34" height="34" ')}</div>
+        <p style="font-size:15px;font-weight:600;color:var(--success);margin-top:8px;">Verified — genuine and active</p>
+        <dl style="display:flex;flex-direction:column;gap:10px;margin-top:20px;text-align:left;">
+          ${verifyRow("Student name", s.fullName)}
+          ${verifyRow("Institute", instName)}
+          ${verifyRow("Course", s.courseName)}
+          ${verifyRow("Completion date", fmtDate(s.completionDate))}
+          ${verifyRow("Certificate code", s.certificateCode, true)}
+        </dl>
+      </div>
+    ` : `
+      <div class="card card-pad" style="margin-top:16px;">
+        <p style="font-size:15px;font-weight:600;color:var(--danger);">Not verified</p>
+        <p style="color:var(--text-muted);font-size:13.5px;margin-top:8px;">No active certificate matches code <span class="mono">${code}</span>. Double-check the code, or it may have been revoked.</p>
+      </div>
+    `}
+  </div>`;
+}
+function verifyRow(label, value, mono) {
+  return `<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);padding-bottom:8px;">
+    <dt style="color:var(--text-muted);font-size:13px;">${label}</dt>
+    <dd style="margin:0;font-weight:600;font-size:13.5px;" class="${mono ? "mono" : ""}">${value}</dd>
+  </div>`;
+}
+
+/* =========================================================================
+   Router
+   ========================================================================= */
+function render(loginError, statusError) {
+  const path = currentPath();
+  const app = document.getElementById("app");
+  let html = "";
+
+  // The "new password" box is shown once — clear it as soon as the admin
+  // navigates away from that student's own detail page.
+  if (justResetPasswordFor && path !== "/admin/students/" + justResetPasswordFor) {
+    justResetPasswordFor = null;
+    justResetPasswordValue = null;
+  }
+  if (certPreviewOpenFor && path !== "/student/portal") {
+    certPreviewOpenFor = null;
+  }
+  if (path !== "/super-admin/dashboard") {
+    renamingInstituteId = null;
+    saJustResetPasswordFor = null;
+    saJustResetPasswordValue = null;
+    deletingInstituteId = null;
+  }
+  if (!path.startsWith("/admin/students/") || path === "/admin/students/new") {
+    editingStudentId = null;
+    revokingCertFor = null;
+  }
+  if (path !== "/admin/settings") {
+    settingsSavedFlash = false;
+  }
+  resetIdleTimer();
+
+  if (path === "/") html = screenLanding();
+  else if (path === "/admin/login") {
+    // Zero extra friction for the common case: exactly one approved
+    // institute forwards straight to its own login. A genuine choice (0 or
+    // 2+ approved institutes) shows the picker instead.
+    const approved = db.institutes.filter((i) => i.status === "APPROVED");
+    if (approved.length === 1) { nav("/admin/login/" + approved[0].slug); return; }
+    html = screenAdminLoginPicker();
+  }
+  else if (path === "/admin/forgot-password") html = screenAdminForgotPassword();
+  else if (path.startsWith("/admin/login/")) html = screenAdminLogin(path.split("/")[3], loginError, statusError);
+  else if (path === "/institute/register") html = screenInstituteRegister();
+  else if (path === "/admin/dashboard") { if (requireAdmin()) html = screenAdminDashboard(); else return; }
+  else if (path === "/admin/students") { if (requireAdmin()) html = screenAdminStudents(); else return; }
+  else if (path === "/admin/students/new") { if (requireAdmin()) html = screenAdminStudentNew(); else return; }
+  else if (path === "/admin/settings") { if (requireAdmin()) html = screenAdminSettings(); else return; }
+  else if (path.startsWith("/admin/students/")) { if (requireAdmin()) html = screenAdminStudentDetail(path.split("/").pop()); else return; }
+  else if (path === "/super-admin/login") html = screenSuperAdminLogin(loginError);
+  else if (path === "/super-admin/dashboard") { if (requireSuperAdmin()) html = screenSuperAdminDashboard(); else return; }
+  else if (path === "/student/login") html = screenStudentLogin(loginError);
+  else if (path === "/student/forgot-password") html = screenForgotPassword();
+  else if (path === "/student/portal") { if (requireStudent()) html = screenStudentPortal(); else return; }
+  else if (path.startsWith("/v/")) html = screenVerify(decodeURIComponent(path.slice(3)));
+  else html = screenLanding();
+
+  app.innerHTML = `<div class="screen active">${html}</div>`;
+  updateChrome();
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+
+  // The certificate preview's real PDF lives in a container this render just
+  // painted (via certificateVisual()) — re-trigger the swap-in on every
+  // render while the preview is open, not just the render right after
+  // "Preview certificate" is clicked. loadRealCertificatePdf's own cache
+  // means a render caused by something unrelated (e.g. a password change on
+  // this same page) just re-shows the already-generated PDF instantly
+  // instead of regenerating it.
+  if (path === "/student/portal" && certPreviewOpenFor) {
+    const previewStudent = db.students.find((x) => x.id === certPreviewOpenFor);
+    if (previewStudent) loadRealCertificatePdf(previewStudent);
+  }
+}
+
+/* =========================================================================
+   Auto sign-out on inactivity (students only) — matches
+   src/components/idle-logout.tsx in the real app. Any real activity
+   (mouse, keyboard, touch, scroll) resets the timer; every render() also
+   counts as activity (a fresh page counts as "just used it").
+   ========================================================================= */
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = session?.kind === "student" ? setTimeout(idleLogout, IDLE_TIMEOUT_MS) : null;
+}
+function idleLogout() {
+  if (session?.kind !== "student") return;
+  session = null;
+  nav("/student/login");
+}
+["mousemove", "mousedown", "keydown", "touchstart", "scroll"].forEach((evt) =>
+  window.addEventListener(evt, resetIdleTimer, { passive: true }),
+);
+// Test-only hook — fires the idle timeout immediately instead of waiting
+// IDLE_TIMEOUT_MS for real, so this can be verified without a 5-minute
+// sleep. Never referenced by any real UI path.
+window.__idleLogoutForTest = idleLogout;
+
+if (!location.hash) location.hash = "#/";
+applyTheme();
+render();
+</script>

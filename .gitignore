@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
+build/
+dist/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+pnpm-debug.log*
+
+# testing / coverage
+coverage/
+
+# prisma
+prisma/*.db
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# logs
+*.log
