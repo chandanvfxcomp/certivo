@@ -31,7 +31,6 @@ import * as fontkit from "fontkit";
 import { getTemplateRenderer } from "./templates";
 import { DEFAULT_TEMPLATE_ID, isTemplateId } from "./templates/registry";
 import type { CertFonts } from "./templates/types";
-import { FONT_SERIF_B64, FONT_SCRIPT_B64, FONT_DEVA_B64 } from "./fonts-embedded";
 
 export interface CertificateImage {
   bytes: Buffer;
@@ -89,12 +88,6 @@ function loadFontBytes(): { serif: Buffer; script: Buffer; deva: Buffer } {
   let serif = read("PlayfairDisplay-Bold.ttf");
   let script = read("GreatVibes.ttf");
   let deva = read("NotoSansDevanagari.ttf");
-  if (!serif || !script || !deva) {
-    // Fallback: embedded base64 fonts (repo may lack the binary TTFs).
-    serif = serif ?? Buffer.from(FONT_SERIF_B64, "base64");
-    script = script ?? Buffer.from(FONT_SCRIPT_B64, "base64");
-    deva = deva ?? Buffer.from(FONT_DEVA_B64, "base64");
-  }
   if (!serif || !script || !deva) throw new Error("certificate fonts missing from public/fonts");
   fontBytesCache = { serif, script, deva };
   return fontBytesCache;
