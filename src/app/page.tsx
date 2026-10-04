@@ -10,7 +10,6 @@ import { VisitBeacon } from "@/components/visit-beacon";
 import { Reveal } from "@/components/landing/reveal";
 import { CountUp } from "@/components/landing/count-up";
 import { FaqAccordion } from "@/components/landing/faq-accordion";
-import { TemplatesShowcase } from "@/components/landing/templates-showcase";
 import {
   CertificateIcon,
   ShieldCheckIcon,
@@ -32,7 +31,6 @@ export default function Home() {
       <SiteHeader />
       <Hero />
       <TrustStrip />
-      <TemplatesShowcase />
       <HowItWorks />
       <StatsSection />
       <VerifySection />
@@ -169,23 +167,26 @@ function Hero() {
           </Link>
         </div>
 
-        {/* Live certificate visual — the real Royal Heritage render */}
+        {/* Live certificate visual — free Classic Simple template as sample */}
         <div
           className="animate-fade-in-up mt-12 w-full max-w-2xl"
           style={{ animationDelay: "0.36s" }}
         >
-          <div className="animate-float" style={{ "--float-duration": "8s" } as CSSProperties}>
+          <div className="animate-float relative" style={{ "--float-duration": "8s" } as CSSProperties}>
             <Image
-              src="/templates/royal-heritage.png"
-              alt="Sample certificate in the Royal Heritage design"
+              src="/templates/classic-simple.png"
+              alt="Sample certificate"
               width={600}
               height={424}
               priority
               className="w-full rounded-xl shadow-2xl ring-1 ring-neutral-900/10 dark:ring-white/10"
             />
+            <span className="absolute left-4 top-4 rounded-md bg-neutral-900/80 px-3 py-1 text-xs font-bold tracking-widest text-white">
+              SAMPLE
+            </span>
           </div>
           <p className="mt-3 text-xs text-neutral-400">
-            Asli render — Royal Heritage template, aapke institute ki branding ke saath
+            Sample certificate — aapke institute ki branding ke saath aisa dikhega
           </p>
         </div>
       </div>
@@ -377,7 +378,7 @@ function FaqSection() {
     },
     {
       q: "Which certificate designs are available?",
-      a: "10 professional templates — Classic Simple is free forever, and 9 premium designs (including the flagship Royal Heritage) unlock with a one-time fee per institute. Every template renders as a print-ready PDF with QR.",
+      a: "10 professional templates — Classic Simple is free forever, and 9 premium designs unlock with a one-time fee per institute. Every template renders as a print-ready PDF with QR.",
     },
   ];
   return (
