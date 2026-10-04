@@ -28,12 +28,31 @@ export async function GET(): Promise<NextResponse> {
     tx.certificate.findFirst({
       where: { studentId: session.studentId, tenantId: session.tenantId, status: "ACTIVE" },
       orderBy: { issuedAt: "desc" },
-      include: { student: { select: { centreId: true, email: true, fullName: true } } },
+      include: { student: { select: { centreId: true, email: true, fullName: true, approvedAt: true, registrationFeePaid: true } } },
     }),
   );
 
   if (!certificate) {
     return NextResponse.json({ error: "NO_CERTIFICATE" }, { status: 404 });
+  }
+
+  // Registration approval gate (2026-10-05): if the institute charges a
+  // registration fee, the student must be approved by an admin before ANY
+  // download. Checked before the 2-free/₹299 logic below.
+  const tenantFeeForGate = await prisma.tenant.findUniqueOrThrow({
+    where: { id: session.tenantId },
+    select: { registrationFeePaise: true },
+  });
+  if (tenantFeeForGate.registrationFeePaise > 0 && !certificate.student.approvedAt) {
+    return NextResponse.json(
+      {
+        error: "APPROVAL_PENDING",
+        message: certificate.student.registrationFeePaid
+          ? "Your registration is pending approval. Your download will activate after your institute approves it."
+          : "Please complete your registration fee payment first. Your download will activate after payment and institute approval.",
+      },
+      { status: 403 },
+    );
   }
 
   // Download gating — per the user's explicit instruction (2026-10-04):

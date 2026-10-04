@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { getSession, clearSessionCookie } from "@/server/auth/session";
 import { withTenant } from "@/server/db/tenant-client";
+import { prisma } from "@/server/db/client";
 import { payPlatformFee, setDirectoryOptIn } from "@/app/student/actions";
 import { FREE_DOWNLOADS_PER_PAYMENT, PLATFORM_REDOWNLOAD_FEE_PAISE } from "@/config/certificate";
 import { isRazorpayConfigured } from "@/server/payments/razorpay";
@@ -10,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/submit-button";
 import { PayWithProvider } from "@/components/pay-with-provider";
+import { PayRegistrationFee } from "@/components/pay-registration-fee";
 import { linkedInAddToProfileUrl } from "@/lib/linkedin";
 
 function formatPaise(paise: number | null): string {
@@ -50,6 +52,16 @@ export default async function StudentPortalPage({
     throw err; // anything else is unexpected — let error.tsx handle it
   }
   const certificate = student.certificates[0] ?? null;
+  // Tenant-level registration fee (0 = free, no gate). Read via the
+  // platform-level client since tenant has no RLS policy.
+  const tenantFee = await prisma.tenant.findUniqueOrThrow({
+    where: { id: session.tenantId },
+    select: { registrationFeePaise: true },
+  });
+  const regFeePaise = tenantFee.registrationFeePaise;
+  const regFeeDue = regFeePaise > 0 && !student.registrationFeePaid;
+  const approvalPending = regFeePaise > 0 && student.registrationFeePaid && !student.approvedAt;
+  const isApproved = regFeePaise === 0 || !!student.approvedAt;
   // The certificate exists the moment it's issued — the student always
   // gets to see it. Money is only charged on downloads (2 free, then
   // ₹299 platform fee per download).
@@ -71,6 +83,63 @@ export default async function StudentPortalPage({
         <h1 className="text-2xl font-semibold">Welcome, {student.fullName}</h1>
         <p className="font-mono text-sm text-neutral-500">{student.studentCode}</p>
       </div>
+
+      {/* Registration fee + approval status */}
+      {regFeePaise > 0 && (
+        <Card className="p-6">
+          <h2 className="mb-4 font-semibold">Registration</h2>
+          {regFeeDue ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-neutral-600">
+                A one-time registration fee of <strong>{formatPaise(regFeePaise)}</strong> is
+                required before your certificate download can be activated.
+              </p>
+              <PayRegistrationFee
+                amountLabel={formatPaise(regFeePaise)}
+                onPaid={() => window.location.reload()}
+              />
+            </div>
+          ) : (
+            <dl className="grid gap-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-neutral-500">Registration fee</dt>
+                <dd className="text-success-500">Paid {formatPaise(student.registrationFeePaise ?? regFeePaise)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-neutral-500">Approval status</dt>
+                <dd>
+                  {isApproved ? (
+                    <span className="inline-block rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      Approved
+                    </span>
+                  ) : (
+                    <span className="inline-block rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                      Pending approval
+                    </span>
+                  )}
+                </dd>
+              </div>
+              {student.invoiceNumber && (
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-neutral-500">Invoice</dt>
+                  <dd className="font-mono">
+                    {student.invoiceNumber}{" "}
+                    <a href="/api/student/invoice" className="text-brand-600 underline underline-offset-2">
+                      Download PDF
+                    </a>
+                  </dd>
+                </div>
+              )}
+            </dl>
+          )}
+          {approvalPending && (
+            <p className="mt-3 text-sm text-amber-700">
+              Your payment is confirmed. Your institute will approve your registration soon —
+              your certificate download activates automatically on approval.
+            </p>
+          )}
+        </Card>
+      )}
 
       {error === "not_found" && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">

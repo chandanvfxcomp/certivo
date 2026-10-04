@@ -60,3 +60,47 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Sent when a student's registration fee payment succeeds. Includes the
+ * invoice number and notes that the certificate download activates after
+ * institute approval.
+ */
+export function registrationFeePaidEmail(params: {
+  studentName: string;
+  instituteName: string;
+  invoiceNumber: string;
+  amountPaise: number;
+}): EmailTemplate {
+  const amount = `₹${(params.amountPaise / 100).toLocaleString("en-IN")}`;
+  const subject = `Payment received — invoice ${params.invoiceNumber}`;
+  const bodyHtml = `
+<p>Hi ${escapeHtml(params.studentName)},</p>
+<p>We've received your registration fee of <strong>${amount}</strong> for ${escapeHtml(params.instituteName)}.</p>
+<p style="background:#f5f5f5;border-radius:8px;padding:12px 16px;">
+Invoice number: <strong style="font-family:monospace;">${escapeHtml(params.invoiceNumber)}</strong><br/>
+Amount paid: <strong>${amount}</strong>
+</p>
+<p>Your invoice is attached to this email for your records. Your certificate download will be activated once your institute approves your registration — we'll email you the moment it's ready.</p>`;
+  const text = `Hi ${params.studentName},\n\nWe've received your registration fee of ${amount} for ${params.instituteName}.\n\nInvoice number: ${params.invoiceNumber}\nAmount paid: ${amount}\n\nYour certificate download will be activated once your institute approves your registration — we'll email you the moment it's ready.`;
+  return { subject, html: shell("Payment received", bodyHtml), text };
+}
+
+/**
+ * Sent when an admin approves a student's registration. The certificate
+ * download link is now active.
+ */
+export function registrationApprovedEmail(params: {
+  studentName: string;
+  instituteName: string;
+}): EmailTemplate {
+  const portalUrl = `https://${BRAND.domain}/student/login`;
+  const subject = `Approved — your certificate is ready to download`;
+  const bodyHtml = `
+<p>Hi ${escapeHtml(params.studentName)},</p>
+<p>Good news — ${escapeHtml(params.instituteName)} has approved your registration.</p>
+<p>Your certificate download is now active. Sign in to your student portal to download it:</p>
+<p><a href="${portalUrl}">${portalUrl}</a></p>`;
+  const text = `Hi ${params.studentName},\n\nGood news — ${params.instituteName} has approved your registration.\n\nYour certificate download is now active. Sign in to your student portal to download it:\n${portalUrl}`;
+  return { subject, html: shell("Registration approved", bodyHtml), text };
+}
+
