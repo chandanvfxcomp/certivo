@@ -2,7 +2,7 @@
   "name": "platform",
   "version": "0.0.0",
   "private": true,
-  "description": "Certivo \u2014 multi-tenant SaaS core platform for issuing and verifying certificates. See src/config/brand.ts.",
+  "description": "Certivo — multi-tenant SaaS core platform for issuing and verifying certificates. See src/config/brand.ts.",
   "engines": {
     "node": "24.x"
   },
@@ -30,7 +30,7 @@
     "clsx": "2.1.1",
     "fontkit": "^2.0.4",
     "jsqr": "^1.4.0",
-    "next": "15.1.6",
+    "next": "15.1.11",
     "pdf-lib": "1.17.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
