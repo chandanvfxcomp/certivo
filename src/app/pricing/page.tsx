@@ -16,6 +16,10 @@ export const metadata: Metadata = {
 };
 
 // Pricing page — the real model, presented honestly:
+// Plans come from the DB and can change anytime via super-admin —
+// always render fresh, never serve a stale prerender.
+export const dynamic = "force-dynamic";
+
 // institutes pick a yearly plan (student limit + features); students get
 // 1 free download per certificate, then ₹299 per download; premium
 // templates are one-time unlocks.
@@ -275,7 +279,7 @@ function PricingCards() {
             </p>
             <ul className="mt-6 flex-1 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
               <li className="flex gap-2.5">
-                <Check /> First 2 downloads per certificate are free
+                <Check /> First download per certificate is free
               </li>
               <li className="flex gap-2.5">
                 <Check /> Flat ₹299 per download after that — no tiers, no surprises
