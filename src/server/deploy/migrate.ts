@@ -153,6 +153,19 @@ export async function runMigrations(limit = 3): Promise<MigrateResult & { remain
   try {
     const migrationsDir = join(process.cwd(), "prisma", "migrations");
 
+    // 0. One-time role bootstrap (production Neon): the `roles_and_rls`
+    // migration GRANTs to `app_user`, which only exists if someone created
+    // it. Create it as NOLOGIN (grants/RLS need the role to exist; the app
+    // itself connects via DATABASE_URL as configured).
+    await prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
+          CREATE ROLE app_user NOLOGIN;
+        END IF;
+      END $$;
+    `);
+
     // 1. Ensure the bookkeeping table exists.
     await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_SQL);
 
