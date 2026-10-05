@@ -2,7 +2,12 @@
 -- Both are printed on the certificate (MODE / GRADE row of the template),
 -- so the verification page shows the same facts. Still snapshot-only, no
 -- PII, no join to student.
-CREATE OR REPLACE VIEW "certificate_public" AS
+--
+-- NOTE: DROP + CREATE (not CREATE OR REPLACE) — the column list changes
+-- (grade/mode added before issued_at), and Postgres refuses to rename view
+-- columns positionally via OR REPLACE.
+DROP VIEW IF EXISTS "certificate_public";
+CREATE VIEW "certificate_public" AS
 SELECT
   "code",
   "status",
