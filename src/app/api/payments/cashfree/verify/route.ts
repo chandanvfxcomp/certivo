@@ -47,7 +47,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     const updated = await withTenant(session.tenantId, async (tx) => {
       const result = await tx.certificate.updateMany({
         where: { id: certificateId, studentId: session.studentId, tenantId: session.tenantId },
-        data: { platformFeePaid: true, platformFeePaidAt: new Date(), downloadCount: 0 },
+        data: { platformFeePaid: true, platformFeePaidAt: new Date() },
       });
       if (result.count > 0) {
         await writeAuditLog(tx, {

@@ -69,6 +69,10 @@ export async function POST(req: Request): Promise<NextResponse> {
       logger.warn("razorpay.regfee.receipt_mismatch", { orderId });
       return NextResponse.json({ error: "ORDER_MISMATCH" }, { status: 400 });
     }
+    if (order && Math.round(Number(order.amount)) !== amountPaise) {
+      logger.warn("razorpay.regfee.amount_mismatch", { orderId });
+      return NextResponse.json({ error: "AMOUNT_MISMATCH" }, { status: 400 });
+    }
     gatewayPaymentRef = paymentId;
   } else {
     const order = await fetchCashfreeOrder(orderId).catch(() => null);
@@ -83,19 +87,35 @@ export async function POST(req: Request): Promise<NextResponse> {
     gatewayPaymentRef = orderId;
   }
 
-  // --- Idempotency: already paid → return existing invoice number ---
-  const existing = await withTenant(session.tenantId, (tx) =>
-    tx.student.findFirst({
-      where: { id: session.studentId, tenantId: session.tenantId, deletedAt: null },
-      select: { registrationFeePaid: true, invoiceNumber: true },
+  // --- Atomic claim: only one verify can win (prevents double-invoice race) ---
+  const claimResult = await withTenant(session.tenantId, (tx) =>
+    tx.student.updateMany({
+      where: {
+        id: session.studentId,
+        tenantId: session.tenantId,
+        deletedAt: null,
+        registrationFeePaid: false,
+      },
+      data: {
+        registrationFeePaid: true,
+        registrationFeePaidAt: new Date(),
+        registrationFeePaise: amountPaise,
+        registrationPaymentId: gatewayPaymentRef,
+      },
     }),
   );
-  if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  if (existing.registrationFeePaid && existing.invoiceNumber) {
-    return NextResponse.json({ ok: true, invoiceNumber: existing.invoiceNumber, alreadyPaid: true });
+  if (claimResult.count === 0) {
+    // Already claimed by a concurrent request — return existing invoice
+    const existing = await withTenant(session.tenantId, (tx) =>
+      tx.student.findFirst({
+        where: { id: session.studentId, tenantId: session.tenantId },
+        select: { invoiceNumber: true },
+      }),
+    );
+    return NextResponse.json({ ok: true, invoiceNumber: existing?.invoiceNumber, alreadyPaid: true });
   }
 
-  // --- Issue invoice (atomic number) + mark paid ---
+  // --- Issue invoice (atomic number) ---
   const student = await withTenant(session.tenantId, (tx) =>
     tx.student.findFirstOrThrow({
       where: { id: session.studentId, tenantId: session.tenantId, deletedAt: null },
@@ -118,13 +138,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   await withTenant(session.tenantId, async (tx) => {
     await tx.student.update({
       where: { id: session.studentId },
-      data: {
-        registrationFeePaid: true,
-        registrationFeePaidAt: new Date(),
-        registrationFeePaise: amountPaise,
-        registrationPaymentId: gatewayPaymentRef,
-        invoiceNumber,
-      },
+      data: { invoiceNumber },
     });
     await writeAuditLog(tx, {
       tenantId: session.tenantId,

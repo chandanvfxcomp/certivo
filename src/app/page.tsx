@@ -61,6 +61,11 @@ function SiteHeader() {
             headings — previously five different labels described these
             same two destinations across the app. */}
         <nav className="flex items-center gap-2">
+          <Link href="/pricing">
+            <Button variant="ghost" size="sm">
+              Pricing
+            </Button>
+          </Link>
           <Link href="/student/login" className="hidden sm:inline-block">
             <Button variant="ghost" size="sm">
               Student sign in
@@ -316,7 +321,7 @@ function VerifySection() {
 
 function LeadSection() {
   return (
-    <section className="border-t border-neutral-200 px-6 py-20 dark:border-neutral-800">
+    <section id="lead" className="scroll-mt-20 border-t border-neutral-200 px-6 py-20 dark:border-neutral-800">
       <div className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-2">
         <Reveal>
           <div>
@@ -363,7 +368,7 @@ function FaqSection() {
     },
     {
       q: "How many times can a student download their certificate?",
-      a: "Two downloads are included. After that, a ₹299 platform fee unlocks two more downloads, and so on — the student's institute never has to be involved again.",
+      a: "Two downloads are included. After that, a ₹299 platform fee unlocks one more download, and so on — the student's institute never has to be involved again.",
     },
     {
       q: "How does my institute get started?",
@@ -413,6 +418,7 @@ function SiteFooter() {
         { label: "Register institute", href: "/institute/register" },
         { label: "Institute admin sign in", href: "/admin/login" },
         { label: "Certificate templates", href: "/admin/templates" },
+        { label: "Pricing", href: "/pricing" },
       ],
     },
     {

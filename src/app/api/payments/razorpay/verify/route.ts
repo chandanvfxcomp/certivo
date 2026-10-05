@@ -49,7 +49,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "ORDER_MISMATCH" }, { status: 400 });
   }
 
-  const data = { platformFeePaid: true, platformFeePaidAt: new Date(), downloadCount: 0 };
+  const data = { platformFeePaid: true, platformFeePaidAt: new Date() };
 
   const updated = await withTenant(session.tenantId, async (tx) => {
     const result = await tx.certificate.updateMany({
