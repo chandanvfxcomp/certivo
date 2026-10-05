@@ -140,6 +140,8 @@ export async function activateSubscription(opts: {
   if (!plan) throw new Error("Plan not found or inactive");
   if (plan.pricePaise !== opts.amountPaise) throw new Error("Amount mismatch");
 
+  let paymentId: string | null = null;
+
   await withTenant(opts.tenantId, async (tx) => {
     // Idempotency: same provider order already recorded as SUCCESS ⇒ done.
     const existing = await tx.subscriptionPayment.findFirst({
@@ -154,13 +156,14 @@ export async function activateSubscription(opts: {
         tenantId: opts.tenantId,
         orderId: opts.providerOrderId,
       });
+      paymentId = existing.id; // allow referral-reward retry on replays
       return;
     }
 
     const endsAt = new Date();
     endsAt.setFullYear(endsAt.getFullYear() + 1);
 
-    await tx.subscriptionPayment.create({
+    const payment = await tx.subscriptionPayment.create({
       data: {
         id: ulid(),
         tenantId: opts.tenantId,
@@ -172,6 +175,7 @@ export async function activateSubscription(opts: {
         status: "SUCCESS",
       },
     });
+    paymentId = payment.id;
 
     await tx.tenant.update({
       where: { id: opts.tenantId },
@@ -203,6 +207,25 @@ export async function activateSubscription(opts: {
     planId: plan.id,
     provider: opts.provider,
   });
+
+  // Referral reward: if this institute was referred and this is their first
+  // paid subscription, the referrer earns 30 free days. Runs after the
+  // payer's transaction commits; failures must not break activation.
+  if (paymentId) {
+    try {
+      const { grantReferralReward } = await import("@/server/referrals/service");
+      await grantReferralReward({
+        referredTenantId: opts.tenantId,
+        subscriptionPaymentId: paymentId,
+      });
+    } catch (err) {
+      logger.warn("referral.reward_failed", {
+        tenantId: opts.tenantId,
+        paymentId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 }
 
 /** Super-admin: full plan list including inactive, for management. */

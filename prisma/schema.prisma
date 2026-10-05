@@ -155,6 +155,17 @@ model Tenant {
   subscriptionStatus String    @default("PENDING_PAYMENT") @map("subscription_status")
   subscriptionEndsAt DateTime? @map("subscription_ends_at") @db.Timestamptz
 
+  // 2026-10-05: referral program. Each institute gets a unique referralCode;
+  // new institutes registering with ?ref=CODE get linked via
+  // referredByTenantId. When a referred institute pays for their first
+  // subscription, the referrer earns 30 free days (ReferralReward).
+  referralCode       String?   @unique @map("referral_code") @db.VarChar(8)
+  referredByTenantId String?   @map("referred_by_tenant_id") @db.Char(26)
+  referredBy         Tenant?   @relation("TenantReferrals", fields: [referredByTenantId], references: [id], onDelete: SetNull)
+  referrals          Tenant[]  @relation("TenantReferrals")
+  rewardsGiven       ReferralReward[] @relation("ReferrerRewards")
+  rewardsReceived    ReferralReward[] @relation("ReferredRewards")
+
   // lifecycle
   termsAcceptedAt DateTime  @map("terms_accepted_at") @db.Timestamptz
   termsVersion    String    @map("terms_version")
@@ -924,7 +935,30 @@ model SubscriptionPayment {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  referralReward ReferralReward?
 
   @@index([tenantId, createdAt])
   @@map("subscription_payment")
+}
+
+// 2026-10-05: referral program rewards. When a referred institute pays for
+// their first subscription plan, the referrer earns 30 free days added to
+// their subscription. One row per triggering payment (unique on
+// subscriptionPaymentId = idempotent). Tenant-scoped via RLS on
+// referrerTenantId — the referrer sees their own rewards.
+model ReferralReward {
+  id                  String    @id @db.Char(26)
+  referrerTenantId    String    @map("referrer_tenant_id") @db.Char(26)
+  referredTenantId    String    @map("referred_tenant_id") @db.Char(26)
+  rewardType          String    @default("EXTENSION_DAYS") @map("reward_type")
+  rewardDays          Int       @default(30) @map("reward_days")
+  grantedAt           DateTime  @default(now()) @map("granted_at") @db.Timestamptz
+  subscriptionPaymentId String? @unique @map("subscription_payment_id") @db.Char(26)
+
+  referrer Tenant              @relation("ReferrerRewards", fields: [referrerTenantId], references: [id], onDelete: Cascade)
+  referred Tenant              @relation("ReferredRewards", fields: [referredTenantId], references: [id], onDelete: Cascade)
+  payment  SubscriptionPayment? @relation(fields: [subscriptionPaymentId], references: [id], onDelete: SetNull)
+
+  @@index([referrerTenantId, grantedAt])
+  @@map("referral_reward")
 }

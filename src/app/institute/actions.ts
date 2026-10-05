@@ -16,6 +16,10 @@ import { hashPassword } from "@/server/auth/password";
 import { isRateLimited, getClientIp } from "@/server/auth/rate-limit";
 import { isValidEmail, isValidIndianMobile } from "@/lib/validation";
 import { ulid } from "@/lib/ulid";
+import {
+  generateUniqueReferralCode,
+  normalizeReferralCode,
+} from "@/server/referrals/code";
 
 const TERMS_VERSION = "v1";
 
@@ -100,6 +104,21 @@ export async function registerInstitute(
   // (registerStudent requires one) — create it at registration time.
   const centreId = ulid();
 
+  // Referral: link to the referring institute if a valid code was supplied.
+  // Invalid/unknown codes are ignored silently — never block registration.
+  const rawRef = normalizeReferralCode(String(formData.get("referralCode") ?? ""));
+  let referredByTenantId: string | null = null;
+  if (rawRef) {
+    const referrer = await prisma.tenant.findUnique({
+      where: { referralCode: rawRef },
+      select: { id: true },
+    });
+    // Can't refer yourself (different email, but be safe) — and the
+    // referrer must be a real tenant.
+    if (referrer && referrer.id !== tenantId) referredByTenantId = referrer.id;
+  }
+  const referralCode = await generateUniqueReferralCode();
+
   await prisma.$transaction(async (tx) => {
     await tx.tenant.create({
       data: {
@@ -118,6 +137,8 @@ export async function registerInstitute(
         country: "IN",
         termsAcceptedAt: new Date(),
         termsVersion: TERMS_VERSION,
+        referralCode,
+        referredByTenantId,
       },
     });
     await tx.user.create({

@@ -55,7 +55,7 @@ export default async function SuperAdminDashboardPage() {
   const tenants = await prisma.tenant.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: {
-      _count: { select: { students: true } },
+      _count: { select: { students: true, referrals: true } },
       plan: { select: { name: true } },
     },
   });
@@ -91,6 +91,7 @@ export default async function SuperAdminDashboardPage() {
               <th className="px-4 py-3 font-medium">Subscription</th>
               <th className="px-4 py-3 font-medium">White-label</th>
               <th className="px-4 py-3 font-medium">Students</th>
+              <th className="px-4 py-3 font-medium">Referrals</th>
               <th className="px-4 py-3 font-medium">Registered</th>
               <th className="px-4 py-3" />
             </tr>
@@ -137,6 +138,7 @@ export default async function SuperAdminDashboardPage() {
                   )}
                 </td>
                 <td className="px-4 py-3">{t._count.students}</td>
+                <td className="px-4 py-3">{t._count.referrals}</td>
                 <td className="px-4 py-3 text-neutral-500">
                   {t.createdAt.toLocaleDateString("en-IN")}
                 </td>

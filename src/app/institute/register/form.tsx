@@ -28,7 +28,7 @@ function Field({
   );
 }
 
-export function RegisterInstituteForm() {
+export function RegisterInstituteForm({ referralCode }: { referralCode?: string | null }) {
   const [state, formAction, pending] = useActionState(registerInstitute, initialState);
 
   if (state.status === "success") {
@@ -63,9 +63,17 @@ export function RegisterInstituteForm() {
           {BRAND.name} — creates your institute&apos;s own admin login. A Super Admin
           approves it before sign-in opens.
         </CardDescription>
+        {referralCode && (
+          <p className="mt-2 rounded-md bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+            You were referred by a partner institute — welcome!
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <form action={formAction} className="flex flex-col gap-4">
+          {referralCode && (
+            <input type="hidden" name="referralCode" value={referralCode} />
+          )}
           {state.status === "error" && (
             <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
               {state.message}
