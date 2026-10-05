@@ -129,7 +129,7 @@ function DeployPanel() {
       <Card className="p-5">
         <h2 className="font-semibold">Provider settings</h2>
         <p className="mt-1 text-sm text-neutral-500">
-          Kal ko Cloudflare ki jagah koi aur provider aaye to yahin se badal dena — code change nahi chahiye.
+          If you switch providers later (e.g. from Cloudflare Tunnel to another), update it here — no code change needed.
         </p>
         <div className="mt-3 space-y-3">
           {defs.map((d) => (
