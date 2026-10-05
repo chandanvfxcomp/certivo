@@ -44,6 +44,102 @@ function newId(): string {
   });
 }
 
+// Split a migration script into individual statements, respecting
+// line/block comments, single-quoted strings, double-quoted identifiers,
+// and dollar-quoted blocks ($$...$$ / $tag$...$tag$). Prisma's
+// $executeRawUnsafe uses prepared statements, which reject multi-command
+// strings — so each statement runs separately.
+function splitStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let current = "";
+  let i = 0;
+  const n = sql.length;
+
+  while (i < n) {
+    const ch = sql[i];
+    const next = sql[i + 1] ?? "";
+
+    // -- line comment
+    if (ch === "-" && next === "-") {
+      const end = sql.indexOf("\n", i);
+      i = end === -1 ? n : end + 1;
+      continue;
+    }
+    // /* block comment */
+    if (ch === "/" && next === "*") {
+      const end = sql.indexOf("*/", i + 2);
+      i = end === -1 ? n : end + 2;
+      continue;
+    }
+    // 'string' with '' escapes
+    if (ch === "'") {
+      current += ch;
+      i++;
+      while (i < n) {
+        if (sql[i] === "'" && sql[i + 1] === "'") {
+          current += "''";
+          i += 2;
+        } else if (sql[i] === "'") {
+          current += "'";
+          i++;
+          break;
+        } else {
+          current += sql[i];
+          i++;
+        }
+      }
+      continue;
+    }
+    // "identifier"
+    if (ch === '"') {
+      current += ch;
+      i++;
+      while (i < n) {
+        if (sql[i] === '"' && sql[i + 1] === '"') {
+          current += '""';
+          i += 2;
+        } else if (sql[i] === '"') {
+          current += '"';
+          i++;
+          break;
+        } else {
+          current += sql[i];
+          i++;
+        }
+      }
+      continue;
+    }
+    // $tag$ dollar-quoted block
+    if (ch === "$") {
+      const m = /^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/.exec(sql.slice(i));
+      if (m) {
+        const tag = m[0];
+        const end = sql.indexOf(tag, i + tag.length);
+        const close = end === -1 ? n : end + tag.length;
+        current += sql.slice(i, close);
+        i = close;
+        continue;
+      }
+      current += ch;
+      i++;
+      continue;
+    }
+    // Statement terminator
+    if (ch === ";") {
+      const stmt = current.trim();
+      if (stmt) statements.push(stmt);
+      current = "";
+      i++;
+      continue;
+    }
+    current += ch;
+    i++;
+  }
+  const tail = current.trim();
+  if (tail) statements.push(tail);
+  return statements;
+}
+
 export async function runMigrations(): Promise<MigrateResult> {
   // Migrations need DDL privileges: use the direct (non-pooled) connection.
   // Falls back to DATABASE_URL if DIRECT_URL isn't set.
@@ -81,7 +177,9 @@ export async function runMigrations(): Promise<MigrateResult> {
 
       // Apply in a transaction, then record it — mirroring `migrate deploy`.
       await prisma.$transaction(async (tx) => {
-        await tx.$executeRawUnsafe(sql);
+        for (const stmt of splitStatements(sql)) {
+          await tx.$executeRawUnsafe(stmt);
+        }
         await tx.$executeRawUnsafe(
           `INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "applied_steps_count") VALUES ($1, $2, now(), $3, 1)`,
           newId(),
