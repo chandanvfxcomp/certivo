@@ -127,7 +127,7 @@ export default async function AdminStudentDetailPage({
             />
             <div className="flex items-center justify-between border-t border-neutral-100 pt-3 dark:border-neutral-900">
               <p className="text-sm text-neutral-500">
-                Downloads used: {certificate.downloadCount} of {FREE_DOWNLOADS_PER_PAYMENT} free
+                Downloads used: {certificate.downloadCount} ({certificate.downloadCount >= FREE_DOWNLOADS_PER_PAYMENT ? "free download used" : "free download available"})
               </p>
             </div>
             <a

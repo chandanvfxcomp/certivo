@@ -146,6 +146,15 @@ model Tenant {
   whiteLabelEnabled Boolean @default(false) @map("white_label_enabled")
   hidePoweredBy     Boolean @default(false) @map("hide_powered_by")
 
+  // 2026-10-05: institute subscription plans. Institutes must hold an ACTIVE
+  // paid plan to use the admin console — subscriptionStatus gates access.
+  // PENDING_PAYMENT (default) = approved but not yet paid. EXPIRED is
+  // derived lazily when subscriptionEndsAt passes.
+  planId             String?   @map("plan_id") @db.Char(26)
+  plan               Plan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  subscriptionStatus String    @default("PENDING_PAYMENT") @map("subscription_status")
+  subscriptionEndsAt DateTime? @map("subscription_ends_at") @db.Timestamptz
+
   // lifecycle
   termsAcceptedAt DateTime  @map("terms_accepted_at") @db.Timestamptz
   termsVersion    String    @map("terms_version")
@@ -178,6 +187,7 @@ model Tenant {
   templateUnlocks TenantTemplateUnlock[]
   invoices      Invoice[]
   invoiceSequences InvoiceSequence[]
+  subscriptionPayments SubscriptionPayment[]
 
   @@index([status, createdAt])
   @@map("tenant")
@@ -874,3 +884,47 @@ enum CertificateStatus {
 // CertificateRevocation (as its own audit table — revocation is inline on
 // Certificate for now), SignatoryProfile. Bring these in when per-tenant
 // certificate layouts / multi-signatory workflows are actually needed.
+
+// 2026-10-05: institute subscription plans. Institutes pay a yearly fee to
+// activate their account — without an ACTIVE subscription the admin console
+// stays locked. Plans bundle a student limit with feature flags.
+model Plan {
+  id          String   @id @db.Char(26)
+  name        String
+  description String?
+  pricePaise  Int      @map("price_paise")
+  // Max students the institute may register. -1 = unlimited.
+  studentLimit Int     @map("student_limit")
+  // Feature flags, e.g. { "bulkIssuance": true, "allTemplates": false,
+  // "whiteLabel": false, "analytics": true }
+  features    Json?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenants             Tenant[]
+  subscriptionPayments SubscriptionPayment[]
+
+  @@map("plan")
+}
+
+// One row per subscription payment attempt by an institute. Tenant-scoped
+// with RLS like other tenant models.
+model SubscriptionPayment {
+  id              String   @id @db.Char(26)
+  tenantId        String   @map("tenant_id") @db.Char(26)
+  planId          String   @map("plan_id") @db.Char(26)
+  amountPaise     Int      @map("amount_paise")
+  provider        String   // "razorpay" | "cashfree"
+  providerOrderId String?  @map("provider_order_id")
+  providerPaymentId String? @map("provider_payment_id")
+  status          String   @default("PENDING") // PENDING | SUCCESS | FAILED
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@map("subscription_payment")
+}

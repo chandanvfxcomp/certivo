@@ -17,6 +17,7 @@ import {
 import { isRateLimited, resetRateLimit, getClientIp } from "@/server/auth/rate-limit";
 import { writePlatformAuditLog } from "@/server/audit/log";
 import { logger } from "@/lib/logger";
+import { ulid } from "@/lib/ulid";
 
 export async function loginSuperAdmin(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -126,4 +127,99 @@ export async function toggleWhiteLabel(tenantId: string, enabled: boolean): Prom
     data: { whiteLabelEnabled: enabled },
   });
   redirect("/super-admin/dashboard");
+}
+
+// 2026-10-05: subscription plan management. Super-admin creates/edits/
+// (de)activates the yearly institute plans.
+
+interface PlanFormState {
+  status: "ok" | "error";
+  message: string;
+}
+
+function parsePlanForm(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
+  const priceRupees = Number(String(formData.get("priceRupees") ?? ""));
+  const studentLimitRaw = String(formData.get("studentLimit") ?? "").trim().toLowerCase();
+  const sortOrder = Number(String(formData.get("sortOrder") ?? "0")) || 0;
+  const features = {
+    bulkIssuance: formData.get("bulkIssuance") === "on",
+    analytics: formData.get("analytics") === "on",
+    allTemplates: formData.get("allTemplates") === "on",
+    whiteLabel: formData.get("whiteLabel") === "on",
+  };
+  return { name, description, priceRupees, studentLimitRaw, sortOrder, features };
+}
+
+export async function createPlan(
+  _prevState: PlanFormState,
+  formData: FormData,
+): Promise<PlanFormState> {
+  await requireSuperAdminSession();
+  const f = parsePlanForm(formData);
+  if (!f.name) return { status: "error", message: "Plan name is required." };
+  if (!Number.isFinite(f.priceRupees) || f.priceRupees < 0) {
+    return { status: "error", message: "Price must be a valid non-negative number." };
+  }
+  const studentLimit =
+    f.studentLimitRaw === "" || f.studentLimitRaw === "unlimited" || f.studentLimitRaw === "-1"
+      ? -1
+      : Number(f.studentLimitRaw);
+  if (!Number.isInteger(studentLimit) || (studentLimit < -1)) {
+    return { status: "error", message: "Student limit must be a number, or blank for unlimited." };
+  }
+  await prisma.plan.create({
+    data: {
+      id: ulid(),
+      name: f.name,
+      description: f.description,
+      pricePaise: Math.round(f.priceRupees * 100),
+      studentLimit,
+      features: f.features,
+      sortOrder: f.sortOrder,
+    },
+  });
+  logger.info("superadmin.plan_created", { name: f.name });
+  redirect("/super-admin/plans");
+}
+
+export async function updatePlan(
+  planId: string,
+  _prevState: PlanFormState,
+  formData: FormData,
+): Promise<PlanFormState> {
+  await requireSuperAdminSession();
+  const f = parsePlanForm(formData);
+  if (!f.name) return { status: "error", message: "Plan name is required." };
+  if (!Number.isFinite(f.priceRupees) || f.priceRupees < 0) {
+    return { status: "error", message: "Price must be a valid non-negative number." };
+  }
+  const studentLimit =
+    f.studentLimitRaw === "" || f.studentLimitRaw === "unlimited" || f.studentLimitRaw === "-1"
+      ? -1
+      : Number(f.studentLimitRaw);
+  if (!Number.isInteger(studentLimit) || studentLimit < -1) {
+    return { status: "error", message: "Student limit must be a number, or blank for unlimited." };
+  }
+  await prisma.plan.update({
+    where: { id: planId },
+    data: {
+      name: f.name,
+      description: f.description,
+      pricePaise: Math.round(f.priceRupees * 100),
+      studentLimit,
+      features: f.features,
+      sortOrder: f.sortOrder,
+    },
+  });
+  logger.info("superadmin.plan_updated", { planId });
+  redirect("/super-admin/plans");
+}
+
+export async function togglePlanActive(planId: string, active: boolean): Promise<void> {
+  await requireSuperAdminSession();
+  await prisma.plan.update({ where: { id: planId }, data: { isActive: active } });
+  logger.info("superadmin.plan_toggled", { planId, active });
+  redirect("/super-admin/plans");
 }

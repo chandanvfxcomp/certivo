@@ -15,11 +15,17 @@ import { findWhiteLabelTenant } from "@/server/branding/resolve-branding";
 export const runtime = "nodejs";
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
   const hostname = req.headers.get("host")?.split(":")[0]?.toLowerCase() ?? "";
-  res.headers.set("x-hostname", hostname);
-
   const { pathname } = req.nextUrl;
+
+  // Forward request headers (mutated copy) so server components can read
+  // x-hostname / x-pathname / x-white-label-tenant via headers().
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-hostname", hostname);
+  requestHeaders.set("x-pathname", pathname);
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+
   // Skip internals, API, and files with extensions.
   if (
     pathname.startsWith("/_next") ||
@@ -32,7 +38,12 @@ export async function middleware(req: NextRequest) {
 
   try {
     const match = await findWhiteLabelTenant(hostname || null);
-    if (match) res.headers.set("x-white-label-tenant", match.id);
+    if (match) {
+      // Also expose to downstream server components via request headers.
+      const rh = new Headers(requestHeaders);
+      rh.set("x-white-label-tenant", match.id);
+      return NextResponse.next({ request: { headers: rh } });
+    }
   } catch {
     // DB unavailable (e.g. pre-migration) — serve platform branding.
   }

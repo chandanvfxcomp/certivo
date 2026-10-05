@@ -4,12 +4,13 @@ import { withTenant } from "@/server/db/tenant-client";
 import { fetchCashfreeOrder } from "@/server/payments/cashfree";
 import { getTemplateMeta, isTemplateId } from "@/server/certificates/templates/registry";
 import { unlockTemplate } from "@/server/certificates/template-service";
+import { getPlan, activateSubscription } from "@/server/subscription/service";
 import { PLATFORM_REDOWNLOAD_FEE_PAISE } from "@/config/certificate";
 import { writeAuditLog } from "@/server/audit/log";
 import { logger } from "@/lib/logger";
 
 // POST /api/payments/cashfree/verify
-// Body: { orderId, purpose: "platform_fee" | "template_unlock", certificateId?, templateId? }
+// Body: { orderId, purpose: "platform_fee" | "template_unlock" | "subscription", certificateId?, templateId?, planId? }
 // Source of truth: fetches the order from Cashfree and requires
 // order_status === "PAID" + amount match. Idempotent.
 export async function POST(req: Request): Promise<NextResponse> {
@@ -18,9 +19,10 @@ export async function POST(req: Request): Promise<NextResponse> {
     purpose?: string;
     certificateId?: string;
     templateId?: string;
+    planId?: string;
   } | null;
-  const { orderId, purpose, certificateId, templateId } = body ?? {};
-  if (!orderId || (purpose !== "platform_fee" && purpose !== "template_unlock")) {
+  const { orderId, purpose, certificateId, templateId, planId } = body ?? {};
+  if (!orderId || (purpose !== "platform_fee" && purpose !== "template_unlock" && purpose !== "subscription")) {
     return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
 
@@ -66,6 +68,10 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: true });
   }
 
+  if (purpose === "subscription") {
+    return verifySubscription(orderId, planId, order);
+  }
+
   // template_unlock
   let session;
   try {
@@ -83,5 +89,34 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
   await unlockTemplate(session.tenantId, templateId, orderId);
   logger.info("cashfree.template_unlocked", { orderId, templateId });
+  return NextResponse.json({ ok: true });
+}
+
+async function verifySubscription(
+  orderId: string,
+  planId: string | undefined,
+  order: { order_status: string; order_amount: number },
+): Promise<NextResponse> {
+  let session;
+  try {
+    session = await requireAdminSession();
+  } catch {
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  }
+  const plan = planId ? await getPlan(planId) : null;
+  if (!plan) return NextResponse.json({ error: "INVALID_PLAN" }, { status: 400 });
+  if (order.order_amount * 100 !== plan.pricePaise) {
+    logger.warn("cashfree.subscription_amount_mismatch", { orderId, planId });
+    return NextResponse.json({ error: "AMOUNT_MISMATCH" }, { status: 400 });
+  }
+  await activateSubscription({
+    tenantId: session.tenantId,
+    planId: plan.id,
+    amountPaise: plan.pricePaise,
+    provider: "cashfree",
+    providerOrderId: orderId,
+    actorId: session.userId,
+  });
+  logger.info("cashfree.subscription_activated", { orderId, planId });
   return NextResponse.json({ ok: true });
 }

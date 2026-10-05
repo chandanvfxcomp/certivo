@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { getSession } from "@/server/auth/session";
+import { getSubscriptionState } from "@/server/subscription/service";
 import { logoutAdmin } from "@/app/admin/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { BRAND } from "@/config/brand";
@@ -8,6 +10,10 @@ import { BRAND } from "@/config/brand";
 // Route-group layout: guards every /admin/* page EXCEPT /admin/login,
 // which lives outside the (protected) group so it never redirect-loops
 // against itself.
+//
+// Subscription gate: an institute whose subscription isn't ACTIVE (pending
+// payment or expired) is redirected to /admin/subscription to choose a
+// plan and pay. The subscription page itself is exempt so it can't loop.
 export default async function AdminProtectedLayout({
   children,
 }: {
@@ -16,6 +22,15 @@ export default async function AdminProtectedLayout({
   const session = await getSession();
   if (!session || session.kind !== "admin") {
     redirect("/admin/login");
+  }
+
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  const isSubscriptionPage = pathname.startsWith("/admin/subscription");
+  if (!isSubscriptionPage) {
+    const sub = await getSubscriptionState(session.tenantId).catch(() => null);
+    if (!sub?.usable) {
+      redirect("/admin/subscription");
+    }
   }
 
   return (
@@ -36,6 +51,9 @@ export default async function AdminProtectedLayout({
               </Link>
               <Link href="/admin/settings" className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50">
                 Settings
+              </Link>
+              <Link href="/admin/subscription" className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-50">
+                Subscription
               </Link>
             </nav>
           </div>

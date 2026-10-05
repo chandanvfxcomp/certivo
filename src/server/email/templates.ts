@@ -3,7 +3,6 @@
 // Transactional email templates — plain functions returning { subject, html, text }.
 // Per BRAND hard rule: all brand strings come from @/config/brand, never hardcoded.
 import { BRAND } from "@/config/brand";
-import { FREE_DOWNLOADS_PER_PAYMENT } from "@/config/certificate";
 
 export interface EmailTemplate {
   subject: string;
@@ -43,12 +42,12 @@ Verify it anytime (no login needed):<br/>
 <a href="${verifyUrl}">${verifyUrl}</a>
 </p>
 <p>${params.downloadsLeft > 0
-    ? `You have <strong>${params.downloadsLeft}</strong> of ${FREE_DOWNLOADS_PER_PAYMENT} free downloads left.`
-    : `You've used your ${FREE_DOWNLOADS_PER_PAYMENT} free downloads — each further download costs ₹299, payable from your student portal.`}</p>
+    ? `You have <strong>1</strong> free download left — use it from your student portal.`
+    : `You've used your free download — each further download costs ₹299, payable from your student portal.`}</p>
 <p>If this wasn't you, please contact your institute right away.</p>`;
   const text = `Hi ${params.studentName},\n\nYour certificate for ${params.courseName} was just downloaded.\n\nCertificate code: ${params.certificateCode}\nVerify it anytime (no login needed): ${verifyUrl}\n\n${params.downloadsLeft > 0
-    ? `You have ${params.downloadsLeft} of ${FREE_DOWNLOADS_PER_PAYMENT} free downloads left.`
-    : `You've used your ${FREE_DOWNLOADS_PER_PAYMENT} free downloads — each further download costs ₹299, payable from your student portal.`}\n\nIf this wasn't you, please contact your institute right away.`;
+    ? `You have 1 free download left — use it from your student portal.`
+    : `You've used your free download — each further download costs ₹299, payable from your student portal.`}\n\nIf this wasn't you, please contact your institute right away.`;
   return { subject, html: shell("Download confirmed", bodyHtml), text };
 }
 

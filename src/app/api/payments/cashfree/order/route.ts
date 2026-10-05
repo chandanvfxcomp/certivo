@@ -5,13 +5,14 @@ import { withTenant } from "@/server/db/tenant-client";
 import { isCashfreeConfigured, createCashfreeOrder } from "@/server/payments/cashfree";
 import { getTemplateMeta, isTemplateId } from "@/server/certificates/templates/registry";
 import { canUseTemplate } from "@/server/certificates/template-service";
+import { getPlan, getSubscriptionState } from "@/server/subscription/service";
 import { PLATFORM_REDOWNLOAD_FEE_PAISE } from "@/config/certificate";
 import { ulid } from "@/lib/ulid";
 
 // POST /api/payments/cashfree/order
-// Body: { purpose: "platform_fee" | "template_unlock", certificateId?, templateId? }
+// Body: { purpose: "platform_fee" | "template_unlock" | "subscription", certificateId?, templateId?, planId? }
 // Creates a Cashfree order and returns { paymentSessionId, orderId } for Checkout.js.
-// Student session for platform_fee, admin session for template_unlock.
+// Student session for platform_fee, admin session for template_unlock/subscription.
 export async function POST(req: Request): Promise<NextResponse> {
   if (!isCashfreeConfigured()) {
     return NextResponse.json({ error: "PAYMENTS_NOT_CONFIGURED" }, { status: 503 });
@@ -21,9 +22,10 @@ export async function POST(req: Request): Promise<NextResponse> {
     purpose?: string;
     certificateId?: string;
     templateId?: string;
+    planId?: string;
   } | null;
-  const { purpose, certificateId, templateId } = body ?? {};
-  if (purpose !== "platform_fee" && purpose !== "template_unlock") {
+  const { purpose, certificateId, templateId, planId } = body ?? {};
+  if (purpose !== "platform_fee" && purpose !== "template_unlock" && purpose !== "subscription") {
     return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
   }
 
@@ -64,13 +66,35 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ paymentSessionId: order.payment_session_id, orderId });
   }
 
-  // template_unlock — admin session
+  // Admin session for subscription + template_unlock purposes.
   let session;
   try {
     session = await requireAdminSession();
   } catch {
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   }
+
+  // subscription — admin session
+  if (purpose === "subscription") {
+    const plan = planId ? await getPlan(planId) : null;
+    if (!plan) return NextResponse.json({ error: "INVALID_PLAN" }, { status: 400 });
+
+    const state = await getSubscriptionState(session.tenantId);
+    if (state.usable && state.plan?.id === plan.id) {
+      return NextResponse.json({ error: "ALREADY_SUBSCRIBED" }, { status: 400 });
+    }
+
+    const subOrderId = `certivo_sub_${ulid()}`;
+    const subOrder = await createCashfreeOrder({
+      orderId: subOrderId,
+      amountPaise: plan.pricePaise,
+      customerId: session.userId,
+      notes: { purpose: "subscription", tenantId: session.tenantId, planId: plan.id },
+    });
+    return NextResponse.json({ paymentSessionId: subOrder.payment_session_id, orderId: subOrderId });
+  }
+
+  // template_unlock — admin session (session already obtained above)
   if (!templateId || !isTemplateId(templateId)) {
     return NextResponse.json({ error: "INVALID_TEMPLATE" }, { status: 400 });
   }

@@ -63,9 +63,9 @@ export default async function StudentPortalPage({
   const approvalPending = regFeePaise > 0 && student.registrationFeePaid && !student.approvedAt;
   const isApproved = regFeePaise === 0 || !!student.approvedAt;
   // The certificate exists the moment it's issued — the student always
-  // gets to see it. Money is only charged on downloads (2 free, then
+  // gets to see it. Money is only charged on downloads (1 free, then
   // ₹299 platform fee per download).
-  // Platform per-download fee state: once the 2 free downloads are used,
+  // Platform per-download fee state: once the free download is used,
   // EACH further download costs the fixed ₹299 platform fee (one payment
   // = one download).
   const downloadsExhausted =
@@ -217,9 +217,9 @@ export default async function StudentPortalPage({
             </div>
             <p className="text-xs text-neutral-500">
               {downloadsExhausted
-                ? `You've used your ${FREE_DOWNLOADS_PER_PAYMENT} free downloads — each further download costs ₹299.`
+                ? `You've used your free download — each further download costs ₹299. Pay below to download instantly.`
                 : downloadsLeft > 0
-                  ? `${downloadsLeft} of ${FREE_DOWNLOADS_PER_PAYMENT} free downloads left.`
+                  ? `Your free download is available — use it below.`
                   : `Each download costs ₹299 from here.`}
             </p>
           </div>
@@ -250,7 +250,9 @@ export default async function StudentPortalPage({
             <dt className="text-xs uppercase tracking-wide text-neutral-500">Downloads</dt>
             <dd>
               {certificate
-                ? `${Math.max(0, FREE_DOWNLOADS_PER_PAYMENT - certificate.downloadCount)} of ${FREE_DOWNLOADS_PER_PAYMENT} free left`
+                ? certificate.downloadCount >= FREE_DOWNLOADS_PER_PAYMENT
+                  ? "Free download used — ₹299 per download"
+                  : "1 free download available"
                 : "—"}
             </dd>
           </div>

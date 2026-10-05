@@ -2186,7 +2186,7 @@ function screenLanding() {
     ["Is verification really free?", "Yes. Anyone with a certificate code — or the QR printed on the certificate — can verify it in seconds. No account, no sign-in, no fee. Verification is the trust layer of the whole product, so it stays open."],
     ["What exactly does a verifier see?", "Only what's needed to confirm authenticity: student name, institute, course, completion date and the certificate code. Personal details like phone numbers and addresses are never shown on the public page."],
     ["What happens if a certificate is revoked?", "It stops verifying immediately. The public page shows a distinct \u201cRevoked \u2014 no longer valid\u201d state (with the institute's reason, if given) instead of a generic error, so nobody is left guessing."],
-    ["How do students get their certificate?", "They sign in with their student ID, and download a print-ready PDF carrying a scannable QR code. Every certificate gets 2 free downloads; after that each download costs ₹299."],
+    ["How do students get their certificate?", "They sign in with their student ID, and download a print-ready PDF carrying a scannable QR code. Every certificate gets 1 free download; after that each download costs ₹299."],
     ["I don't have the code — can I still verify?", "Yes, if you have the certificate itself: scan the QR code printed on it with any phone camera and you'll land directly on its verification page."],
   ];
   return `
@@ -3420,7 +3420,7 @@ function screenStudentPortal() {
         ${justOpened ? `<div style="margin-top:16px;max-width:520px;">${certificateVisual(s)}</div>` : ""}
       ` : certPendingFee ? `
         <div style="display:flex;flex-direction:column;gap:12px;">
-          <p style="color:var(--text-muted);font-size:13.5px;line-height:1.6;">Your certificate is ready! You get 2 free downloads; after that each download costs ₹299.</p>
+          <p style="color:var(--text-muted);font-size:13.5px;line-height:1.6;">Your certificate is ready! You get 1 free download; after that each download costs ₹299.</p>
           <p style="font-size:12px;color:var(--text-faint);">No payment gateway yet — this marks the fee paid directly, same as your institute can. Your institute can also do this for you if you'd rather pay them in person.</p>
         </div>
       ` : s.certificateStatus === "REVOKED" ? `

@@ -330,7 +330,7 @@ function HowItWorks() {
 
 function StatsSection() {
   const stats = [
-    { target: 2, prefix: "", suffix: "", label: "Free downloads per certificate" },
+    { target: 1, prefix: "", suffix: "", label: "Free download per certificate" },
     { target: 299, prefix: "₹", suffix: "", label: "Platform fee per re-download" },
     { target: 0, prefix: "", suffix: "", label: "Logins needed to verify" },
     { target: 10, prefix: "", suffix: "", label: "Professional templates" },
@@ -425,7 +425,7 @@ function FaqSection() {
     },
     {
       q: "How many times can a student download their certificate?",
-      a: "Two downloads are included. After that, a ₹299 platform fee unlocks one more download, and so on — the student's institute never has to be involved again.",
+      a: "One download is included free. After that, a ₹299 platform fee unlocks one more download, and so on — the student's institute never has to be involved again.",
     },
     {
       q: "How does my institute get started?",

@@ -26,7 +26,7 @@ export const DEFAULT_FOLLOWUP_TEMPLATES: DefaultTemplate[] = [
 Certivo se aap:
 - 2 minute me professional certificate banao (10 premium templates)
 - Har certificate pe QR code — koi bhi scan karke verify kar sakta hai
-- Student ko 2 free downloads, uske baad sirf ₹299
+- Student ko 1 free download, uske baad sirf ₹299 per download
 
 Agla step: yahan register karo aur apna institute onboard karo.
 Jawab me "DEMO" likh bhejo — hum aapko live demo dikhayenge.
@@ -45,7 +45,7 @@ dusra institute scan kare aur turant pata chale: asli hai.
 
 - Certificates kabhi expire nahi hote
 - Verification hamesha FREE (code, QR, ya photo upload se)
-- Aapka kharcha: sirf tab jab student 2 free downloads ke baad dobara download kare
+- Aapka kharcha: student ko 1 free download milta hai, uske baad har download par sirf ₹299
 
 Ek baar setup, phir sab automatic. Register karna 5 minute ka kaam hai.
 

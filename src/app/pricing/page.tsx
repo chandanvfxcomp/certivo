@@ -7,25 +7,31 @@ import { VisitBeacon } from "@/components/visit-beacon";
 import { Reveal } from "@/components/landing/reveal";
 import { FaqAccordion } from "@/components/landing/faq-accordion";
 import { TEMPLATE_CATALOG } from "@/server/certificates/templates/registry";
+import { getActivePlans, type PlanInfo } from "@/server/subscription/service";
 
 export const metadata: Metadata = {
   title: `Pricing — ${BRAND.name}`,
   description:
-    "Simple, honest pricing: free verification forever, 2 free downloads per certificate, then ₹299 per download. Premium certificate templates as one-time unlocks. No subscription.",
+    "Simple, honest pricing: free verification forever, 1 free download per certificate, then ₹299 per download. Premium certificate templates as one-time unlocks. Yearly institute plans.",
 };
 
-// Pricing page — the real pay-as-you-go model, presented honestly.
-// No invented subscription tiers: Free (verification + 2 downloads +
-// 1 template), ₹299 per extra download, one-time template unlocks.
-export default function PricingPage() {
+// Pricing page — the real model, presented honestly:
+// institutes pick a yearly plan (student limit + features); students get
+// 1 free download per certificate, then ₹299 per download; premium
+// templates are one-time unlocks.
+export default async function PricingPage() {
   const premiumTemplates = TEMPLATE_CATALOG.filter((t) => t.tier === "premium");
   const freeTemplate = TEMPLATE_CATALOG.find((t) => t.tier === "free");
+  // Institute plans from the DB; fall back to empty (section hides itself)
+  // if the database is unreachable — the page must never crash.
+  const plans: PlanInfo[] = await getActivePlans().catch(() => []);
 
   return (
     <main className="flex min-h-screen flex-col bg-neutral-0 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50">
       <PricingHeader />
       <Hero />
       <TrustBar />
+      <InstitutePlans plans={plans} />
       <PricingCards />
       <TemplateTable templates={premiumTemplates} />
       <RegistrationFeeNote />
@@ -35,6 +41,79 @@ export default function PricingPage() {
       <PricingFooter freeTemplateName={freeTemplate?.name ?? "Classic Simple"} />
       <VisitBeacon />
     </main>
+  );
+}
+
+function formatStudentLimit(limit: number): string {
+  return limit === -1 ? "Unlimited" : `${limit}`;
+}
+
+function InstitutePlans({ plans }: { plans: PlanInfo[] }) {
+  if (plans.length === 0) return null;
+  return (
+    <section className="mx-auto w-full max-w-6xl px-6 py-14 sm:py-20">
+      <Reveal>
+        <div className="text-center">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+            For institutes
+          </p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Simple yearly plans
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-neutral-600 dark:text-neutral-400">
+            Your institute account activates with a yearly plan. Pick the one
+            that fits your student strength — upgrade anytime as you grow.
+          </p>
+        </div>
+      </Reveal>
+      <div className="mt-10 grid gap-6 md:grid-cols-3">
+        {plans.map((plan, i) => (
+          <Reveal key={plan.id}>
+            <Card
+              className={`card-hover flex h-full flex-col p-7 ${i === 1 ? "ring-2 ring-brand-500" : ""}`}
+            >
+              {i === 1 && (
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                  Most popular
+                </p>
+              )}
+              <h3 className="text-lg font-bold">{plan.name}</h3>
+              {plan.description && (
+                <p className="mt-1 text-sm text-neutral-500">{plan.description}</p>
+              )}
+              <p className="mt-4 text-4xl font-extrabold tracking-tight">
+                ₹{plan.pricePaise / 100}
+                <span className="text-base font-medium text-neutral-500"> / year</span>
+              </p>
+              <p className="mt-2 text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                {formatStudentLimit(plan.studentLimit)} students
+              </p>
+              <ul className="mt-6 flex-1 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
+                {plan.features.bulkIssuance && (
+                  <li className="flex gap-2.5"><Check /> Bulk certificate issuance (CSV)</li>
+                )}
+                {plan.features.analytics && (
+                  <li className="flex gap-2.5"><Check /> Analytics dashboard</li>
+                )}
+                {plan.features.allTemplates && (
+                  <li className="flex gap-2.5"><Check /> All 10 certificate templates</li>
+                )}
+                {plan.features.whiteLabel && (
+                  <li className="flex gap-2.5"><Check /> White-label branding</li>
+                )}
+                <li className="flex gap-2.5"><Check /> QR &amp; code verification</li>
+                <li className="flex gap-2.5"><Check /> 1 free download per certificate</li>
+              </ul>
+              <a href="/institute/register" className="mt-7 block">
+                <Button className="w-full" variant={i === 1 ? "default" : "outline"}>
+                  Register your institute
+                </Button>
+              </a>
+            </Card>
+          </Reveal>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -94,9 +173,9 @@ function Hero() {
             <span className="text-gradient-brand">Pay only when students download.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-neutral-600 dark:text-neutral-400">
-            No subscription. No hidden charges. Verification is free forever —
-            you only pay a small fee when a student downloads beyond their two
-            free downloads.
+            No hidden charges. Verification is free forever — institutes
+            pick a simple yearly plan, and students get one free download per
+            certificate.
           </p>
         </Reveal>
       </div>
@@ -106,7 +185,7 @@ function Hero() {
 
 function TrustBar() {
   const items = [
-    "No subscription",
+    "Yearly institute plans",
     "No hidden charges",
     "Verification always free",
     "Secure payments via Razorpay & UPI",
@@ -154,7 +233,7 @@ function PricingCards() {
                 <Check /> Verification by code, QR &amp; photo — unlimited, forever
               </li>
               <li className="flex gap-2.5">
-                <Check /> 2 free downloads per certificate
+                <Check /> 1 free download per certificate
               </li>
               <li className="flex gap-2.5">
                 <Check /> 1 professional template (Classic Simple)
@@ -191,7 +270,7 @@ function PricingCards() {
               </span>
             </p>
             <p className="mt-2 text-sm text-neutral-500">
-              After the 2 free downloads, each additional download costs a
+              After the 1 free download, each additional download costs a
               flat ₹299.
             </p>
             <ul className="mt-6 flex-1 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
@@ -403,8 +482,8 @@ function WhiteLabelAddon() {
 function PricingFaq() {
   const faqs = [
     {
-      q: "What happens after the 2 free downloads?",
-      a: "Every certificate includes 2 free downloads. From the 3rd download onwards, the student pays a flat ₹299 per download at checkout (Razorpay / UPI). There are no tiers or volume traps — it is always ₹299.",
+      q: "What happens after the free download?",
+      a: "Every certificate includes 1 free download. From the 2nd download onwards, the student pays a flat ₹299 per download at checkout (Razorpay / UPI). There are no tiers or volume traps — it is always ₹299.",
     },
     {
       q: "Do certificates expire?",
@@ -516,7 +595,7 @@ function PricingFooter({ freeTemplateName }: { freeTemplateName: string }) {
             <span className="text-lg font-bold tracking-tight">{BRAND.name}</span>
           </div>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-neutral-500">
-            {BRAND.tagline} Simple pricing: free verification, 2 free downloads
+            {BRAND.tagline} Simple pricing: free verification, 1 free download
             per certificate, then ₹299. {freeTemplateName} template free forever.
           </p>
         </div>

@@ -23,6 +23,7 @@ import { isValidEmail, isValidIndianMobile } from "@/lib/validation";
 import { isBrandDomainConfigured } from "@/config/brand";
 import { writeAuditLog } from "@/server/audit/log";
 import { logger } from "@/lib/logger";
+import { checkStudentLimit, getSubscriptionState } from "@/server/subscription/service";
 
 /**
  * True for a Prisma unique-constraint violation (P2002) whose target
@@ -258,6 +259,12 @@ export async function registerStudent(
     const centre = await withTenant(admin.tenantId, (tx) =>
       tx.centre.findFirstOrThrow({ where: { tenantId: admin.tenantId, isPrimary: true } }),
     );
+
+    // Subscription gate: enforce the plan's student limit before issuing.
+    const limitError = await checkStudentLimit(admin.tenantId, 1);
+    if (limitError) {
+      return { status: "error", message: limitError };
+    }
 
     // QA audit finding A6: pdf-lib's standard fonts can't render
     // non-WinAnsi characters (e.g. Devanagari) — check up front, at
@@ -848,6 +855,15 @@ export async function bulkRegisterStudents(
     tx.centre.findFirstOrThrow({ where: { tenantId: admin.tenantId, isPrimary: true } }),
   );
 
+  // Subscription gate: fetch the plan's student limit once, enforce per row.
+  const subState = await getSubscriptionState(admin.tenantId).catch(() => null);
+  const studentLimit = subState?.plan?.studentLimit ?? null; // null/-1 = unlimited
+  const baseStudentCount =
+    studentLimit !== null && studentLimit !== -1
+      ? await withTenant(admin.tenantId, (tx) => tx.student.count({ where: { tenantId: admin.tenantId } }))
+      : 0;
+  let createdInBatch = 0;
+
   const results: BulkRowResult[] = [];
 
   for (let ri = 0; ri < dataRows.length; ri++) {
@@ -904,6 +920,17 @@ export async function bulkRegisterStudents(
 
     if (errors.length > 0) {
       results.push({ rowNumber, ok: false, errors, fullName: fullName || undefined });
+      continue;
+    }
+
+    // Plan student limit: stop creating once the limit is reached.
+    if (studentLimit !== null && studentLimit !== -1 && baseStudentCount + createdInBatch >= studentLimit) {
+      results.push({
+        rowNumber,
+        ok: false,
+        errors: [`Student limit reached for your plan (${studentLimit} students). Upgrade your plan to add more students.`],
+        fullName: fullName || undefined,
+      });
       continue;
     }
 
@@ -979,6 +1006,7 @@ export async function bulkRegisterStudents(
         rowNumber, ok: true, errors: [],
         studentCode, tempPassword, certificateCode, fullName,
       });
+      createdInBatch++;
     } catch (err) {
       logger.warn("admin.bulk_register_row_failed", { rowNumber, error: String(err) });
       results.push({ rowNumber, ok: false, errors: ["Couldn't create this row — try again"], fullName });

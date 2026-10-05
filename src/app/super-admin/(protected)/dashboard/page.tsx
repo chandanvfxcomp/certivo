@@ -27,12 +27,37 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function SubscriptionBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    ACTIVE: "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300",
+    PENDING_PAYMENT: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    EXPIRED: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+    SUSPENDED: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+  };
+  const labels: Record<string, string> = {
+    ACTIVE: "Active",
+    PENDING_PAYMENT: "Payment pending",
+    EXPIRED: "Expired",
+    SUSPENDED: "Suspended",
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${styles[status] ?? styles.PENDING_PAYMENT}`}
+    >
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
 export default async function SuperAdminDashboardPage() {
   await requireSuperAdminSession();
 
   const tenants = await prisma.tenant.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-    include: { _count: { select: { students: true } } },
+    include: {
+      _count: { select: { students: true } },
+      plan: { select: { name: true } },
+    },
   });
   const pending = tenants.filter((t) => t.status === "PENDING").length;
 
@@ -63,6 +88,7 @@ export default async function SuperAdminDashboardPage() {
               <th className="px-4 py-3 font-medium">Institute</th>
               <th className="px-4 py-3 font-medium">Contact</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Subscription</th>
               <th className="px-4 py-3 font-medium">White-label</th>
               <th className="px-4 py-3 font-medium">Students</th>
               <th className="px-4 py-3 font-medium">Registered</th>
@@ -83,6 +109,12 @@ export default async function SuperAdminDashboardPage() {
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={t.status} />
+                </td>
+                <td className="px-4 py-3">
+                  <SubscriptionBadge status={t.subscriptionStatus} />
+                  {t.plan && (
+                    <div className="mt-1 text-xs text-neutral-500">{t.plan.name}</div>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <form action={toggleWhiteLabel.bind(null, t.id, !t.whiteLabelEnabled)}>

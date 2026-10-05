@@ -36,6 +36,7 @@ export default async function SuperAdminProtectedLayout({
             <span className="font-semibold">{BRAND.name} Super Admin</span>
             <nav className="flex flex-wrap items-center gap-1 text-sm">
               <NavLink href="/super-admin/dashboard">Institutes</NavLink>
+              <NavLink href="/super-admin/plans">Plans</NavLink>
               <NavLink href="/super-admin/visits">Visits</NavLink>
               <NavLink href="/super-admin/leads">Leads</NavLink>
               <NavLink href="/super-admin/followups">Follow-ups</NavLink>
