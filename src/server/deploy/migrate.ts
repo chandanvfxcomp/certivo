@@ -1,40 +1,106 @@
 // src/server/deploy/migrate.ts
 //
-// 1-click database migration for the super admin. Runs
-// `prisma migrate deploy` and returns the output.
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+// 1-click database migration for the super admin.
+//
+// Runs pending Prisma migrations WITHOUT the prisma CLI: the CLI needs the
+// schema-engine binary, which isn't shipped in the Vercel serverless bundle.
+// Instead we apply each migration's SQL directly in a transaction and track
+// state in the standard `_prisma_migrations` table — the same bookkeeping
+// `prisma migrate deploy` uses, so the two stay compatible.
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { PrismaClient } from "@prisma/client";
 
 export interface MigrateResult {
   ok: boolean;
   output: string;
+  applied?: string[];
+}
+
+const MIGRATIONS_TABLE_SQL = `
+CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
+  "id" VARCHAR(36) NOT NULL,
+  "checksum" VARCHAR(64) NOT NULL,
+  "finished_at" TIMESTAMPTZ,
+  "migration_name" VARCHAR(255) NOT NULL,
+  "logs" TEXT,
+  "rolled_back_at" TIMESTAMPTZ,
+  "started_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "applied_steps_count" INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY ("id")
+);`;
+
+function sha256Hex(content: string): string {
+  return createHash("sha256").update(content, "utf8").digest("hex");
+}
+
+function newId(): string {
+  // Simple UUIDv4 — avoids importing the ulid helper into deploy code.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 export async function runMigrations(): Promise<MigrateResult> {
+  // Migrations need DDL privileges: use the direct (non-pooled) connection.
+  // Falls back to DATABASE_URL if DIRECT_URL isn't set.
+  const prisma = new PrismaClient({
+    datasources: {
+      db: { url: process.env.DIRECT_URL || process.env.DATABASE_URL },
+    },
+    log: ["error"],
+  });
+  const applied: string[] = [];
   try {
-    // Use the prisma binary directly (not npx): npx tries to use a cache
-    // dir and can attempt network installs, both of which fail on Vercel
-    // serverless (read-only fs, tiny /tmp). `prisma` is a production
-    // dependency so its CLI ships with the deployment.
-    const prismaCli = `${process.cwd()}/node_modules/prisma/build/index.js`;
-    const schemaPath = `${process.cwd()}/prisma/schema.prisma`;
-    const { stdout, stderr } = await execFileAsync(
-      "node",
-      [prismaCli, "migrate", "deploy", "--schema", schemaPath],
-      {
-        cwd: process.cwd(),
-        timeout: 180_000,
-        maxBuffer: 1024 * 1024,
-        env: { ...process.env },
-      }
-    );
-    const output = (stdout + "\n" + stderr).trim().slice(0, 6000);
-    return { ok: true, output: output || "Migrations applied — database is up to date." };
+    const migrationsDir = join(process.cwd(), "prisma", "migrations");
+
+    // 1. Ensure the bookkeeping table exists.
+    await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_SQL);
+
+    // 2. Which migrations are already applied?
+    const rows = (await prisma.$queryRawUnsafe(
+      `SELECT "migration_name" FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL`
+    )) as Array<{ migration_name: string }>;
+    const done = new Set(rows.map((r) => r.migration_name));
+
+    // 3. List migration directories in order.
+    const entries = await readdir(migrationsDir, { withFileTypes: true });
+    const dirs = entries
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+
+    for (const dir of dirs) {
+      if (done.has(dir)) continue;
+      const sqlPath = join(migrationsDir, dir, "migration.sql");
+      const sql = await readFile(sqlPath, "utf8");
+      const checksum = sha256Hex(sql);
+
+      // Apply in a transaction, then record it — mirroring `migrate deploy`.
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(sql);
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "applied_steps_count") VALUES ($1, $2, now(), $3, 1)`,
+          newId(),
+          checksum,
+          dir
+        );
+      });
+      applied.push(dir);
+    }
+
+    const output =
+      applied.length === 0
+        ? "Migrations applied — database is up to date."
+        : `Applied ${applied.length} migration(s): ${applied.join(", ")}`;
+    return { ok: true, output, applied };
   } catch (err) {
-    const e = err as { stdout?: string; stderr?: string; message?: string };
-    const output = ((e.stdout ?? "") + "\n" + (e.stderr ?? "")).trim() || e.message || "migrate failed";
-    return { ok: false, output: output.slice(0, 6000) };
+    const e = err as { message?: string };
+    return { ok: false, output: `Migration failed: ${e.message ?? String(err)}`.slice(0, 6000), applied };
+  } finally {
+    await prisma.$disconnect().catch(() => {});
   }
 }
