@@ -125,6 +125,14 @@ function SiteHeader({ brand }: { brand: ResolvedBranding }) {
               Institute admin sign in
             </Button>
           </Link>
+          {!brand.isWhiteLabel && (
+            <Link href="/super-admin/login" className="hidden md:inline-block">
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                <ShieldCheckIcon className="h-4 w-4" />
+                Super Admin
+              </Button>
+            </Link>
+          )}
           <Link href="/institute/register">
             <Button size="sm">Register institute</Button>
           </Link>
