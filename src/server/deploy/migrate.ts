@@ -14,11 +14,17 @@ export interface MigrateResult {
 
 export async function runMigrations(): Promise<MigrateResult> {
   try {
+    // Vercel serverless has a read-only filesystem except /tmp — point
+    // npm/npx caches there so `npx prisma` doesn't fail on mkdir.
     const { stdout, stderr } = await execFileAsync("npx", ["prisma", "migrate", "deploy"], {
       cwd: process.cwd(),
       timeout: 180_000,
       maxBuffer: 1024 * 1024,
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        npm_config_cache: "/tmp/.npm-cache",
+        XDG_CACHE_HOME: "/tmp/.cache",
+      },
     });
     const output = (stdout + "\n" + stderr).trim().slice(0, 6000);
     return { ok: true, output: output || "Migrations applied — database is up to date." };
