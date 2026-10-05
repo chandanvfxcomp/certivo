@@ -25,7 +25,10 @@
 -- (no `prisma migrate dev` — see README); the SQL was however syntax-
 -- and behavior-verified against a local scratch Postgres 16 database in
 -- this environment before being committed here.
-ALTER TABLE "enrollment" DROP CONSTRAINT "enrollment_tenant_id_student_id_course_id_batch_id_key";
+-- Note: the original was created via CREATE UNIQUE INDEX (see the init
+-- migration), not as a table constraint, so it must be dropped with
+-- DROP INDEX — ALTER TABLE ... DROP CONSTRAINT cannot see it.
+DROP INDEX "enrollment_tenant_id_student_id_course_id_batch_id_key";
 
 CREATE UNIQUE INDEX "enrollment_tenant_student_course_batch_key"
   ON "enrollment" ("tenant_id", "student_id", "course_id", "batch_id")
