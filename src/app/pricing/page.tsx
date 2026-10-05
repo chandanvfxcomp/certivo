@@ -29,6 +29,7 @@ export default function PricingPage() {
       <PricingCards />
       <TemplateTable templates={premiumTemplates} />
       <RegistrationFeeNote />
+      <WhiteLabelAddon />
       <PricingFaq />
       <FinalCta />
       <PricingFooter freeTemplateName={freeTemplate?.name ?? "Classic Simple"} />
@@ -346,6 +347,55 @@ function RegistrationFeeNote() {
           </p>
         </Reveal>
       </div>
+    </section>
+  );
+}
+
+function WhiteLabelAddon() {
+  return (
+    <section className="mx-auto w-full max-w-6xl px-6 py-14 sm:py-20">
+      <Reveal>
+        <Card className="card-hover relative overflow-hidden p-8 sm:p-10">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand-500/10 blur-3xl"
+          />
+          <div className="relative grid items-center gap-8 md:grid-cols-[1fr_auto]">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                Premium add-on
+              </p>
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight">
+                White Label
+              </h2>
+              <p className="mt-3 max-w-xl text-neutral-600 dark:text-neutral-400">
+                Run Certivo as your own platform. Your institute name and logo
+                in the header and footer, your brand color, your own subdomain
+                (<span className="font-mono text-sm">yourinstitute.certivo.in</span>)
+                or your own domain
+                (<span className="font-mono text-sm">certificates.yourinstitute.com</span>).
+                Optionally hide &ldquo;Powered by Certivo&rdquo; entirely.
+              </p>
+              <ul className="mt-5 grid gap-2.5 text-sm text-neutral-600 dark:text-neutral-300 sm:grid-cols-2">
+                <li className="flex gap-2.5"><Check /> Your logo, name &amp; brand color</li>
+                <li className="flex gap-2.5"><Check /> Custom domain with simple CNAME setup</li>
+                <li className="flex gap-2.5"><Check /> Free subdomain included</li>
+                <li className="flex gap-2.5"><Check /> Hide &ldquo;Powered by Certivo&rdquo;</li>
+              </ul>
+            </div>
+            <div className="text-center md:text-right">
+              <p className="text-4xl font-extrabold tracking-tight">
+                ₹999
+                <span className="text-base font-medium text-neutral-500"> / month</span>
+              </p>
+              <p className="mt-1 text-sm text-neutral-500">per institute, cancel anytime</p>
+              <a href="/institute/register" className="mt-5 inline-block">
+                <Button>Enable white-label</Button>
+              </a>
+            </div>
+          </div>
+        </Card>
+      </Reveal>
     </section>
   );
 }

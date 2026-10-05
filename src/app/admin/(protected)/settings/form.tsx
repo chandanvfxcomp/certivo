@@ -31,6 +31,13 @@ export function BrandingForm(props: {
   campusPhotoDataUrl: string | null;
   authoritySignatureDataUrl: string | null;
   centreHeadSignatureDataUrl: string | null;
+  // 2026-10-05: white-label
+  tenantName: string;
+  whiteLabelEnabled: boolean;
+  subdomain: string;
+  customDomain: string;
+  primaryColor: string;
+  hidePoweredBy: boolean;
 }) {
   const [state, formAction] = useActionState(updateBranding, initialState);
 
@@ -132,9 +139,17 @@ export function BrandingForm(props: {
         </div>
       </Card>
 
+      <WhiteLabelCard
+        tenantName={props.tenantName}
+        whiteLabelEnabled={props.whiteLabelEnabled}
+        subdomain={props.subdomain}
+        customDomain={props.customDomain}
+        primaryColor={props.primaryColor}
+        hidePoweredBy={props.hidePoweredBy}
+      />
+
       <Card className="p-6">
-        <h2 className="mb-1 font-semibold">Student registration fee</h2>
-        <p className="mb-4 text-sm text-neutral-500">
+        <h2 className="mb-1 font-semibold">Student registration fee</h2>        <p className="mb-4 text-sm text-neutral-500">
           One-time fee each student pays before their certificate download is activated.
           Set to 0 for free registration (no payment or approval needed). Paid
           registrations appear under Approvals.
@@ -159,6 +174,135 @@ export function BrandingForm(props: {
         <SubmitButton pendingText="Saving…">Save changes</SubmitButton>
       </div>
     </form>
+  );
+}
+
+function WhiteLabelCard({
+  tenantName,
+  whiteLabelEnabled,
+  subdomain,
+  customDomain,
+  primaryColor,
+  hidePoweredBy,
+}: {
+  tenantName: string;
+  whiteLabelEnabled: boolean;
+  subdomain: string;
+  customDomain: string;
+  primaryColor: string;
+  hidePoweredBy: boolean;
+}) {
+  // Auto-suggest a subdomain from the institute name, e.g.
+  // "Sharma Coaching Centre" → "sharma-coaching-centre".
+  const suggested = tenantName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 63);
+  const [sub, setSub] = useState(subdomain);
+  const [enabled, setEnabled] = useState(whiteLabelEnabled);
+
+  return (
+    <Card className="p-6">
+      <h2 className="mb-1 font-semibold">White label</h2>
+      <p className="mb-4 text-sm text-neutral-500">
+        Serve Certivo under your own branding — your logo, your name, your
+        colors, your domain. Premium add-on (see Pricing).
+      </p>
+
+      <label className="mb-4 flex cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          name="whiteLabelEnabled"
+          defaultChecked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          className="h-4 w-4 rounded accent-neutral-900"
+        />
+        <span className="text-sm font-medium">Enable white-label for this institute</span>
+      </label>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="subdomain">Subdomain</Label>
+          <div className="flex items-center gap-1">
+            <Input
+              id="subdomain"
+              name="subdomain"
+              value={sub}
+              onChange={(e) => setSub(e.target.value.toLowerCase())}
+              placeholder={suggested || "your-institute"}
+              maxLength={63}
+              className="font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setSub(suggested)}
+              className="shrink-0 rounded-md border border-neutral-200 px-2.5 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              Use suggestion
+            </button>
+          </div>
+          <p className="text-xs text-neutral-500">
+            Your site will be live at <span className="font-mono">{sub || suggested || "your-institute"}.certivo.in</span> once
+            enabled.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="customDomain">Custom domain (optional)</Label>
+          <Input
+            id="customDomain"
+            name="customDomain"
+            defaultValue={customDomain}
+            placeholder="certificates.yourinstitute.com"
+            maxLength={253}
+            className="font-mono"
+          />
+          <p className="text-xs text-neutral-500">
+            Point a DNS <span className="font-mono">CNAME</span> record from your
+            domain to <span className="font-mono">certivo-chandan21.vercel.app</span>,
+            then enter the domain here.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="primaryColor">Brand color</Label>
+          <div className="flex items-center gap-2">
+            <input
+              id="primaryColor"
+              name="primaryColor"
+              type="color"
+              defaultValue={/^#[0-9a-fA-F]{6}$/.test(primaryColor) ? primaryColor : "#0F172A"}
+              className="h-10 w-14 cursor-pointer rounded border border-neutral-200 bg-white p-1 dark:border-neutral-700"
+            />
+            <span className="text-xs text-neutral-500">
+              Used as the accent color across your white-label site.
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center">
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              name="hidePoweredBy"
+              defaultChecked={hidePoweredBy}
+              className="h-4 w-4 rounded accent-neutral-900"
+            />
+            <span className="text-sm">
+              Hide &ldquo;Powered by Certivo&rdquo; in the footer
+            </span>
+          </label>
+        </div>
+      </div>
+
+      {!enabled && (
+        <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          White-label is a premium add-on at ₹999/month. Enable it here and our
+          team will confirm activation — your branding stays saved either way.
+        </p>
+      )}
+    </Card>
   );
 }
 

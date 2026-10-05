@@ -165,7 +165,7 @@ export function TemplateGallery({
                 }}
               />
               <span className="absolute right-3 top-3 rounded-md bg-neutral-900/80 px-2.5 py-1 text-[10px] font-bold tracking-widest text-white">
-                SAMPLE
+                DEMO
               </span>
               <div className="absolute left-3 top-3 flex gap-2">
                 {t.tier === "free" ? (

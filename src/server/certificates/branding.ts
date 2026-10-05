@@ -80,5 +80,6 @@ export async function buildCertificatePdfInput(
     centreHeadSignature,
     authorityName: tenant.authorizedPerson ?? tenant.ownerName,
     authoritySignature,
+    brandPrimaryColor: tenant.primaryColor ?? null,
   };
 }

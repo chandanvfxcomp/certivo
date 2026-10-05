@@ -1,0 +1,27 @@
+# .github/workflows/send-followups.yml
+#
+# Daily automation: hits the app's cron endpoint so due follow-up
+# emails go out without anyone pressing a button.
+#
+# Setup (one time, in GitHub repo → Settings → Secrets and variables → Actions):
+#   APP_URL     — e.g. https://certivo.vercel.app
+#   CRON_SECRET — same long random string as the CRON_SECRET env var on the host
+name: Send follow-up emails
+
+on:
+  schedule:
+    # Every day at 04:30 IST (23:00 UTC previous day)
+    - cron: "0 23 * * *"
+  workflow_dispatch: # manual "Run workflow" button for testing
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger follow-up cron
+        run: |
+          code=$(curl -s -o /tmp/out.json -w "%{http_code}" \
+            "${{ secrets.APP_URL }}/api/cron/send-followups?secret=${{ secrets.CRON_SECRET }}")
+          cat /tmp/out.json
+          echo "HTTP $code"
+          test "$code" = "200"

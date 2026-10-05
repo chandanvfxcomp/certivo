@@ -61,6 +61,10 @@ export interface CertificatePdfInput {
   centreHeadSignature?: CertificateImage | null;
   authorityName?: string | null;
   authoritySignature?: CertificateImage | null;
+  // 2026-10-05: white-label brand color (Tenant.primaryColor, hex like
+  // "#1E40AF"). Plumed through for templates that want it; the 10 fixed
+  // template designs keep their own palettes intact and ignore it.
+  brandPrimaryColor?: string | null;
 }
 
 export interface GeneratePdfOptions {

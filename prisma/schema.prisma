@@ -137,6 +137,15 @@ model Tenant {
   // gate. Collected via Razorpay/Cashfree; invoice auto-generated.
   registrationFeePaise Int @default(0) @map("registration_fee_paise")
 
+  // 2026-10-05: white-label. Institutes can serve the site under their own
+  // branding — custom domain (certificates.example.com) or subdomain
+  // (<slug>.<base-domain>). Premium feature gated by whiteLabelEnabled
+  // (super-admin toggles). Brand color reuses primaryColor above.
+  customDomain      String? @unique @map("custom_domain")
+  subdomain         String? @unique @map("subdomain")
+  whiteLabelEnabled Boolean @default(false) @map("white_label_enabled")
+  hidePoweredBy     Boolean @default(false) @map("hide_powered_by")
+
   // lifecycle
   termsAcceptedAt DateTime  @map("terms_accepted_at") @db.Timestamptz
   termsVersion    String    @map("terms_version")

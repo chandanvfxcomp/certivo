@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGPASSWORD: postgres
+      APP_USER_PASSWORD: app_user_ci_password
+      MIGRATOR_PASSWORD: migrator_ci_password
+      DATABASE_URL: "postgresql://app_user:app_user_ci_password@localhost:5432/platform_dev?schema=public"
+      DIRECT_URL: "postgresql://migrator:migrator_ci_password@localhost:5432/platform_dev?schema=public"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # No pnpm-lock.yaml is committed yet — this repo was produced in a
+      # sandbox with no npm registry access, so `pnpm install` was never
+      # run to generate one (see README.md). Once a lockfile exists,
+      # switch this to `pnpm install --frozen-lockfile` for reproducible
+      # CI installs.
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Set up DB roles + RLS (psql, not Prisma — bootstrap only)
+        run: bash scripts/setup-db-roles.sh
+
+      - name: Apply migrations
+        # scripts/setup-db-roles.sh (previous step) already created the
+        # app_user/migrator roles and the platform_dev database (owned by
+        # migrator). This step just makes migrator own the public schema
+        # too — see verify-rls.sh's comment on why that ownership matters
+        # — then applies both migrations as migrator, over TCP (no local
+        # postgres OS user exists on this runner; Postgres is a sibling
+        # service container, not a local process).
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d platform_dev -c \
+            "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public AUTHORIZATION migrator;"
+          PGPASSWORD="$MIGRATOR_PASSWORD" psql -h localhost -U migrator -d platform_dev \
+            -v ON_ERROR_STOP=1 -f prisma/migrations/20260907095000_init/migration.sql
+          PGPASSWORD="$MIGRATOR_PASSWORD" psql -h localhost -U migrator -d platform_dev \
+            -v ON_ERROR_STOP=1 -f prisma/migrations/20260907095500_roles_and_rls/migration.sql
+          PGPASSWORD="$MIGRATOR_PASSWORD" psql -h localhost -U migrator -d platform_dev \
+            -v ON_ERROR_STOP=1 -f prisma/migrations/20260910100000_certificate_and_fees/migration.sql
+          PGPASSWORD="$MIGRATOR_PASSWORD" psql -h localhost -U migrator -d platform_dev \
+            -v ON_ERROR_STOP=1 -f prisma/migrations/20260910120000_certificate_download_limit/migration.sql
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test (includes the Section 17 done-when test + RLS-coverage test)
+        run: pnpm test
+
+      - name: RLS-only verification (psql, no Node — belt and suspenders)
+        run: bash scripts/verify-rls.sh

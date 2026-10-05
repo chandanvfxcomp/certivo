@@ -115,3 +115,15 @@ export async function reactivateTenant(tenantId: string): Promise<void> {
   await setTenantStatus(tenantId, "APPROVED");
   redirect("/super-admin/dashboard");
 }
+
+// 2026-10-05: white-label premium gate. Super-admin enables/disables the
+// white-label feature per institute (the institute configures domains and
+// colors from their own Settings page).
+export async function toggleWhiteLabel(tenantId: string, enabled: boolean): Promise<void> {
+  await requireSuperAdminSession();
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { whiteLabelEnabled: enabled },
+  });
+  redirect("/super-admin/dashboard");
+}

@@ -1,7 +1,12 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { headers } from "next/headers";
 import { BRAND } from "@/config/brand";
+import {
+  resolveBranding,
+  type ResolvedBranding,
+} from "@/server/branding/resolve-branding";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { VerifyCodeBox } from "@/components/verify-code-box";
@@ -23,20 +28,43 @@ import {
 // visual, scroll-reveal sections, animated stat counters, template showcase
 // with the 10 real thumbnails, smooth FAQ accordion, rich footer.
 // Motion is plain CSS + tiny client components (landing/) — no new
-// animation dependency. Pure server-rendered marketing page: no data
-// fetching, zero backend risk.
-export default function Home() {
+// animation dependency.
+//
+// 2026-10-05: white-label support. When reached via a tenant's customDomain
+// or subdomain (middleware sets x-white-label-tenant), the page renders
+// with THAT institute's name/logo instead of Certivo branding.
+export default async function Home() {
+  const h = await headers();
+  const hostname = h.get("x-hostname");
+  const branding = await resolveBranding(hostname).catch(() => null);
+  const brand = branding ?? {
+    tenantId: null,
+    name: BRAND.name,
+    tagline: BRAND.tagline,
+    logoUrl: null,
+    primaryColor: "#0F172A",
+    hidePoweredBy: false,
+    isWhiteLabel: false,
+  };
+  // White-label: expose the institute's brand color as a CSS variable so
+  // key accents (header dot, hero badge) can pick it up via inline style.
+  const wlStyle = brand.isWhiteLabel
+    ? ({ "--wl-primary": brand.primaryColor } as CSSProperties)
+    : undefined;
   return (
-    <main className="flex min-h-screen flex-col bg-neutral-0 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50">
-      <SiteHeader />
-      <Hero />
+    <main
+      className="flex min-h-screen flex-col bg-neutral-0 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50"
+      style={wlStyle}
+    >
+      <SiteHeader brand={brand} />
+      <Hero brand={brand} />
       <TrustStrip />
       <HowItWorks />
       <StatsSection />
       <VerifySection />
       <LeadSection />
       <FaqSection />
-      <SiteFooter />
+      <SiteFooter brand={brand} />
       <VisitBeacon />
       {/* Floating WhatsApp support — research: must-have for Indian customers */}
       <a
@@ -54,17 +82,26 @@ export default function Home() {
   );
 }
 
-function SiteHeader() {
+function SiteHeader({ brand }: { brand: ResolvedBranding }) {
+  const dotStyle = brand.isWhiteLabel
+    ? ({ backgroundColor: "var(--wl-primary)" } as CSSProperties)
+    : undefined;
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-200/60 bg-neutral-0/80 backdrop-blur dark:border-neutral-800/60 dark:bg-neutral-950/80">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2.5">
-          <span
-            aria-hidden
-            className="h-2.5 w-2.5 rounded-full bg-brand-500 shadow-[0_0_0_4px_var(--color-brand-500)]/20"
-          />
+          {brand.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={brand.logoUrl} alt={brand.name} className="h-8 w-auto max-w-[120px] object-contain" />
+          ) : (
+            <span
+              aria-hidden
+              style={dotStyle}
+              className="h-2.5 w-2.5 rounded-full bg-brand-500 shadow-[0_0_0_4px_var(--color-brand-500)]/20"
+            />
+          )}
           <span className="text-lg font-bold tracking-tight">
-            {BRAND.name}
+            {brand.name}
           </span>
         </Link>
         {/* QA audit findings D5/G1: consolidated onto one consistent pair
@@ -97,7 +134,7 @@ function SiteHeader() {
   );
 }
 
-function Hero() {
+function Hero({ brand }: { brand: ResolvedBranding }) {
   return (
     <section className="relative overflow-hidden px-6 pb-16 pt-20 sm:pt-24">
       {/* Ambient gradient wash + drifting blobs, decorative only */}
@@ -148,7 +185,7 @@ function Hero() {
           className="animate-fade-in-up text-4xl font-extrabold tracking-tight sm:text-6xl"
           style={{ animationDelay: "0.08s" }}
         >
-          {BRAND.name} —{" "}
+          {brand.name} —{" "}
           <span className="text-gradient-brand">certificates</span> that prove
           themselves
         </h1>
@@ -156,7 +193,7 @@ function Hero() {
           className="animate-fade-in-up mt-3 text-lg font-medium text-brand-600 dark:text-brand-400"
           style={{ animationDelay: "0.14s" }}
         >
-          {BRAND.tagline}
+          {brand.tagline || BRAND.tagline}
         </p>
         <p
           className="animate-fade-in-up mt-5 max-w-xl text-balance text-neutral-600 dark:text-neutral-400"
@@ -196,7 +233,7 @@ function Hero() {
               className="w-full rounded-xl shadow-2xl ring-1 ring-neutral-900/10 dark:ring-white/10"
             />
             <span className="absolute left-4 top-4 rounded-md bg-neutral-900/80 px-3 py-1 text-xs font-bold tracking-widest text-white">
-              SAMPLE
+              DEMO
             </span>
           </div>
           <p className="mt-3 text-xs text-neutral-400">
@@ -414,7 +451,7 @@ function FaqSection() {
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ brand }: { brand: ResolvedBranding }) {
   const cols: { h: string; links: { label: string; href: string }[] }[] = [
     {
       h: "Verify",
@@ -439,26 +476,35 @@ function SiteFooter() {
         { label: "Student sign in", href: "/student/login" },
       ],
     },
-    {
-      h: "Platform",
-      links: [
-        { label: "Super Admin", href: "/super-admin/login" },
-      ],
-    },
+    // White-label hides the platform column (Super Admin link) — the
+    // institute's own domain shouldn't advertise the platform.
+    ...(brand.isWhiteLabel
+      ? []
+      : [
+          {
+            h: "Platform",
+            links: [{ label: "Super Admin", href: "/super-admin/login" }],
+          },
+        ]),
   ];
   return (
     <footer className="mt-auto border-t border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/40">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <div className="flex items-center gap-2.5">
-            <span
-              aria-hidden
-              className="h-2.5 w-2.5 rounded-full bg-brand-500 shadow-[0_0_0_4px_var(--color-brand-500)]/20"
-            />
-            <span className="text-lg font-bold tracking-tight">{BRAND.name}</span>
+            {brand.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={brand.logoUrl} alt={brand.name} className="h-8 w-auto max-w-[120px] object-contain" />
+            ) : (
+              <span
+                aria-hidden
+                className="h-2.5 w-2.5 rounded-full bg-brand-500 shadow-[0_0_0_4px_var(--color-brand-500)]/20"
+              />
+            )}
+            <span className="text-lg font-bold tracking-tight">{brand.name}</span>
           </div>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-neutral-500">
-            {BRAND.tagline} Digital certificates with public verification —
+            {brand.tagline || BRAND.tagline} Digital certificates with public verification —
             issue once, trust forever.
           </p>
         </div>
@@ -485,9 +531,16 @@ function SiteFooter() {
       <div className="border-t border-neutral-200 dark:border-neutral-800">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-5 text-xs text-neutral-400 sm:flex-row">
           <span>
-            {BRAND.legalName} · {BRAND.supportEmail}
+            {brand.isWhiteLabel ? brand.name : `${BRAND.legalName} · ${BRAND.supportEmail}`}
           </span>
-          <span>Certificates never expire · Verification is always free</span>
+          <span>
+            Certificates never expire · Verification is always free
+            {!brand.hidePoweredBy && (
+              <>
+                {" "}· Powered by {BRAND.name}
+              </>
+            )}
+          </span>
         </div>
       </div>
     </footer>

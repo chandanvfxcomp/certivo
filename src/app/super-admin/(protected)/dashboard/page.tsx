@@ -5,6 +5,7 @@ import {
   rejectTenant,
   suspendTenant,
   reactivateTenant,
+  toggleWhiteLabel,
 } from "@/app/super-admin/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -62,6 +63,7 @@ export default async function SuperAdminDashboardPage() {
               <th className="px-4 py-3 font-medium">Institute</th>
               <th className="px-4 py-3 font-medium">Contact</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">White-label</th>
               <th className="px-4 py-3 font-medium">Students</th>
               <th className="px-4 py-3 font-medium">Registered</th>
               <th className="px-4 py-3" />
@@ -81,6 +83,26 @@ export default async function SuperAdminDashboardPage() {
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={t.status} />
+                </td>
+                <td className="px-4 py-3">
+                  <form action={toggleWhiteLabel.bind(null, t.id, !t.whiteLabelEnabled)}>
+                    <button
+                      type="submit"
+                      title={t.whiteLabelEnabled ? "Disable white-label" : "Enable white-label"}
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        t.whiteLabelEnabled
+                          ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                          : "bg-neutral-100 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400"
+                      }`}
+                    >
+                      {t.whiteLabelEnabled ? "ON" : "OFF"}
+                    </button>
+                  </form>
+                  {(t.subdomain || t.customDomain) && (
+                    <div className="mt-1 font-mono text-[11px] text-neutral-500">
+                      {t.customDomain ?? `${t.subdomain}`}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3">{t._count.students}</td>
                 <td className="px-4 py-3 text-neutral-500">
@@ -124,7 +146,7 @@ export default async function SuperAdminDashboardPage() {
             ))}
             {tenants.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-neutral-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-neutral-500">
                   No institutes yet.
                 </td>
               </tr>

@@ -72,6 +72,12 @@ export default async function AdminSettingsPage() {
         campusPhotoDataUrl={campusPhotoDataUrl}
         authoritySignatureDataUrl={authoritySignatureDataUrl}
         centreHeadSignatureDataUrl={centreHeadSignatureDataUrl}
+        tenantName={tenant.name}
+        whiteLabelEnabled={tenant.whiteLabelEnabled}
+        subdomain={tenant.subdomain ?? ""}
+        customDomain={tenant.customDomain ?? ""}
+        primaryColor={tenant.primaryColor ?? "#0F172A"}
+        hidePoweredBy={tenant.hidePoweredBy}
       />
     </div>
   );

@@ -585,6 +585,39 @@ export async function updateBranding(
   const authorityName = String(formData.get("authorityName") ?? "").trim() || null;
   const centreHeadName = String(formData.get("centreHeadName") ?? "").trim() || null;
   const registrationFeeRaw = String(formData.get("registrationFeeRupees") ?? "").trim();
+  // 2026-10-05: white-label fields.
+  const whiteLabelEnabled = formData.get("whiteLabelEnabled") === "on";
+  const subdomainRaw = String(formData.get("subdomain") ?? "").trim().toLowerCase();
+  const customDomainRaw = String(formData.get("customDomain") ?? "").trim().toLowerCase();
+  const primaryColorRaw = String(formData.get("primaryColor") ?? "").trim();
+  const hidePoweredBy = formData.get("hidePoweredBy") === "on";
+
+  let subdomain: string | null = null;
+  if (subdomainRaw) {
+    if (!/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/.test(subdomainRaw)) {
+      return {
+        status: "error",
+        message: "Subdomain must be 3–63 characters: lowercase letters, numbers, hyphens.",
+      };
+    }
+    subdomain = subdomainRaw;
+  }
+
+  let customDomain: string | null = null;
+  if (customDomainRaw) {
+    if (!/^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))*\.[a-z]{2,}$/.test(customDomainRaw)) {
+      return { status: "error", message: "Custom domain doesn't look like a valid domain name." };
+    }
+    customDomain = customDomainRaw;
+  }
+
+  let primaryColor: string | null = null;
+  if (primaryColorRaw) {
+    if (!/^#[0-9a-fA-F]{6}$/.test(primaryColorRaw)) {
+      return { status: "error", message: "Brand color must be a hex code like #1E40AF." };
+    }
+    primaryColor = primaryColorRaw.toUpperCase();
+  }
 
   let establishedYear: number | null = null;
   if (establishedYearRaw) {
@@ -622,6 +655,10 @@ export async function updateBranding(
       const tenantData: Prisma.TenantUncheckedUpdateInput = {
         tagline, motto, establishedYear, authorizedPerson: authorityName,
         registrationFeePaise,
+        // White-label: institute configures everything here; super-admin can
+        // also toggle whiteLabelEnabled from their console (premium gate).
+        whiteLabelEnabled, subdomain, customDomain, hidePoweredBy,
+        ...(primaryColor ? { primaryColor } : {}),
       };
       const centreData: Prisma.CentreUncheckedUpdateInput = { headName: centreHeadName };
 
@@ -701,6 +738,13 @@ export async function updateBranding(
   } catch (err) {
     if (err instanceof InvalidImageUploadError) {
       return { status: "error", message: err.message };
+    }
+    // Unique subdomain / custom domain taken by another institute.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return {
+        status: "error",
+        message: "That subdomain or custom domain is already taken by another institute.",
+      };
     }
     logger.error("branding.update_failed", {
       tenantId: admin.tenantId,
