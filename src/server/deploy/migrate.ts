@@ -14,17 +14,16 @@ export interface MigrateResult {
 
 export async function runMigrations(): Promise<MigrateResult> {
   try {
-    // Vercel serverless has a read-only filesystem except /tmp — point
-    // npm/npx caches there so `npx prisma` doesn't fail on mkdir.
-    const { stdout, stderr } = await execFileAsync("npx", ["prisma", "migrate", "deploy"], {
+    // Use the prisma binary directly (not npx): npx tries to use a cache
+    // dir and can attempt network installs, both of which fail on Vercel
+    // serverless (read-only fs, tiny /tmp). `prisma` is a production
+    // dependency so its CLI ships with the deployment.
+    const prismaCli = `${process.cwd()}/node_modules/prisma/build/index.js`;
+    const { stdout, stderr } = await execFileAsync("node", [prismaCli, "migrate", "deploy"], {
       cwd: process.cwd(),
       timeout: 180_000,
       maxBuffer: 1024 * 1024,
-      env: {
-        ...process.env,
-        npm_config_cache: "/tmp/.npm-cache",
-        XDG_CACHE_HOME: "/tmp/.cache",
-      },
+      env: { ...process.env },
     });
     const output = (stdout + "\n" + stderr).trim().slice(0, 6000);
     return { ok: true, output: output || "Migrations applied — database is up to date." };
