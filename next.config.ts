@@ -41,6 +41,13 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Include prisma schema + migrations in the serverless bundle so the
+  // 1-click `prisma migrate deploy` (super-admin Deploy page and the
+  // one-time /api/setup/bootstrap) can find them on Vercel.
+  outputFileTracingIncludes: {
+    "/api/super-admin/db/migrate": ["./prisma/**/*"],
+    "/api/setup/bootstrap": ["./prisma/**/*"],
+  },
   async headers() {
     return [
       {

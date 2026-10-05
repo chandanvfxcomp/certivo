@@ -19,12 +19,17 @@ export async function runMigrations(): Promise<MigrateResult> {
     // serverless (read-only fs, tiny /tmp). `prisma` is a production
     // dependency so its CLI ships with the deployment.
     const prismaCli = `${process.cwd()}/node_modules/prisma/build/index.js`;
-    const { stdout, stderr } = await execFileAsync("node", [prismaCli, "migrate", "deploy"], {
-      cwd: process.cwd(),
-      timeout: 180_000,
-      maxBuffer: 1024 * 1024,
-      env: { ...process.env },
-    });
+    const schemaPath = `${process.cwd()}/prisma/schema.prisma`;
+    const { stdout, stderr } = await execFileAsync(
+      "node",
+      [prismaCli, "migrate", "deploy", "--schema", schemaPath],
+      {
+        cwd: process.cwd(),
+        timeout: 180_000,
+        maxBuffer: 1024 * 1024,
+        env: { ...process.env },
+      }
+    );
     const output = (stdout + "\n" + stderr).trim().slice(0, 6000);
     return { ok: true, output: output || "Migrations applied — database is up to date." };
   } catch (err) {
