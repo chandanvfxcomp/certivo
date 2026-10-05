@@ -34,13 +34,23 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   // 1. Run pending migrations (creates all tables including User).
-  const migrateResult = await runMigrations();
-  logger.info("setup.bootstrap.migrate", { ok: migrateResult.ok });
+  // Time-boxed batches: the caller repeats until `remaining` hits 0.
+  const migrateResult = await runMigrations(3);
+  logger.info("setup.bootstrap.migrate", { ok: migrateResult.ok, remaining: migrateResult.remaining });
   if (!migrateResult.ok) {
     return NextResponse.json(
       { error: "MIGRATE_FAILED", output: migrateResult.output },
       { status: 500 }
     );
+  }
+  if (migrateResult.remaining > 0) {
+    return NextResponse.json({
+      ok: true,
+      status: "migrating",
+      applied: migrateResult.applied,
+      remaining: migrateResult.remaining,
+      message: "Migrations in progress — call again until remaining is 0.",
+    });
   }
 
   // 2. Re-check (in case of race), then create the super admin.

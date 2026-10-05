@@ -140,7 +140,7 @@ function splitStatements(sql: string): string[] {
   return statements;
 }
 
-export async function runMigrations(): Promise<MigrateResult> {
+export async function runMigrations(limit = 3): Promise<MigrateResult & { remaining: number }> {
   // Migrations need DDL privileges: use the direct (non-pooled) connection.
   // Falls back to DATABASE_URL if DIRECT_URL isn't set.
   const prisma = new PrismaClient({
@@ -171,33 +171,39 @@ export async function runMigrations(): Promise<MigrateResult> {
 
     for (const dir of dirs) {
       if (done.has(dir)) continue;
+      if (applied.length >= limit) break; // time-boxed: caller repeats until remaining = 0
       const sqlPath = join(migrationsDir, dir, "migration.sql");
       const sql = await readFile(sqlPath, "utf8");
       const checksum = sha256Hex(sql);
 
       // Apply in a transaction, then record it — mirroring `migrate deploy`.
-      await prisma.$transaction(async (tx) => {
-        for (const stmt of splitStatements(sql)) {
-          await tx.$executeRawUnsafe(stmt);
-        }
-        await tx.$executeRawUnsafe(
-          `INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "applied_steps_count") VALUES ($1, $2, now(), $3, 1)`,
-          newId(),
-          checksum,
-          dir
-        );
-      });
+      // Generous timeouts: DDL batches can take a while on first setup.
+      await prisma.$transaction(
+        async (tx) => {
+          for (const stmt of splitStatements(sql)) {
+            await tx.$executeRawUnsafe(stmt);
+          }
+          await tx.$executeRawUnsafe(
+            `INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "applied_steps_count") VALUES ($1, $2, now(), $3, 1)`,
+            newId(),
+            checksum,
+            dir
+          );
+        },
+        { maxWait: 30000, timeout: 120000 }
+      );
       applied.push(dir);
     }
 
+    const remaining = dirs.filter((d) => !done.has(d) && !applied.includes(d)).length;
     const output =
-      applied.length === 0
+      applied.length === 0 && remaining === 0
         ? "Migrations applied — database is up to date."
-        : `Applied ${applied.length} migration(s): ${applied.join(", ")}`;
-    return { ok: true, output, applied };
+        : `Applied ${applied.length} migration(s): ${applied.join(", ")}${remaining > 0 ? ` — ${remaining} remaining` : ""}`;
+    return { ok: true, output, applied, remaining };
   } catch (err) {
     const e = err as { message?: string };
-    return { ok: false, output: `Migration failed: ${e.message ?? String(err)}`.slice(0, 6000), applied };
+    return { ok: false, output: `Migration failed: ${e.message ?? String(err)}`.slice(0, 6000), applied, remaining: -1 };
   } finally {
     await prisma.$disconnect().catch(() => {});
   }
