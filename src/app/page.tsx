@@ -126,10 +126,13 @@ function SiteHeader({ brand }: { brand: ResolvedBranding }) {
             </Button>
           </Link>
           {!brand.isWhiteLabel && (
-            <Link href="/super-admin/login" className="hidden md:inline-block">
-              <Button variant="ghost" size="sm" className="gap-1.5">
+            <Link
+              href="/super-admin/login"
+              aria-label="Super Admin sign in"
+              title="Super Admin sign in"
+            >
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100">
                 <ShieldCheckIcon className="h-4 w-4" />
-                Super Admin
               </Button>
             </Link>
           )}
@@ -484,16 +487,6 @@ function SiteFooter({ brand }: { brand: ResolvedBranding }) {
         { label: "Student sign in", href: "/student/login" },
       ],
     },
-    // White-label hides the platform column (Super Admin link) — the
-    // institute's own domain shouldn't advertise the platform.
-    ...(brand.isWhiteLabel
-      ? []
-      : [
-          {
-            h: "Platform",
-            links: [{ label: "Super Admin", href: "/super-admin/login" }],
-          },
-        ]),
   ];
   return (
     <footer className="mt-auto border-t border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/40">
@@ -540,13 +533,6 @@ function SiteFooter({ brand }: { brand: ResolvedBranding }) {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-5 text-xs text-neutral-400 sm:flex-row">
           <span>
             {brand.isWhiteLabel ? brand.name : `${BRAND.legalName} · ${BRAND.supportEmail}`}
-            {" · "}
-            <Link
-              href="/super-admin/login"
-              className="transition hover:text-neutral-600 dark:hover:text-neutral-200"
-            >
-              Platform admin
-            </Link>
           </span>
           <span>
             Certificates never expire · Verification is always free

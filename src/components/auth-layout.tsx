@@ -79,12 +79,16 @@ export function AuthLayout({
           <ArrowLeftIcon />
           Back to home
         </Link>
-        <span className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight text-neutral-200">
+        <Link
+          href="/"
+          aria-label="Back to home"
+          className="inline-flex items-center gap-2 rounded-lg text-sm font-semibold tracking-tight text-neutral-200 transition hover:text-white"
+        >
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-indigo-600 text-white shadow-lg shadow-indigo-500/30">
             <ShieldCheckIcon />
           </span>
           {BRAND.name}
-        </span>
+        </Link>
       </header>
 
       {/* Card */}

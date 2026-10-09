@@ -4,7 +4,6 @@ import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthLayout } from "@/components/auth-layout";
-import { BRAND } from "@/config/brand";
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing: "Email and password are required.",
@@ -26,8 +25,8 @@ export default async function AdminLoginPage({
 
   return (
     <AuthLayout
-      title="Institute admin sign in"
-      description={`${BRAND.name} — institute admin console`}
+      title="Welcome back"
+      description="Sign in to your institute's admin console"
       footer={
         <div className="flex flex-col items-center gap-2">
           <p>
