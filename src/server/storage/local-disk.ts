@@ -36,16 +36,49 @@ export { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_BYTES };
 
 export class InvalidImageUploadError extends Error {}
 
-function assertValidImage(mimeType: string, sizeBytes: number): void {
+/**
+ * Security (audit 2026-10-09, L-2): the client-supplied File.type is
+ * spoofable, so the declared MIME is cross-checked against the file's
+ * magic bytes — the content must actually be the image kind it claims.
+ */
+function sniffImageKind(bytes: Buffer): "png" | "jpeg" | null {
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 && // P
+    bytes[2] === 0x4e && // N
+    bytes[3] === 0x47 && // G
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return "png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "jpeg";
+  }
+  return null;
+}
+
+function assertValidImage(mimeType: string, bytes: Buffer): void {
   if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
     throw new InvalidImageUploadError("Only PNG or JPEG images are allowed.");
   }
+  const sizeBytes = bytes.length;
   if (sizeBytes === 0) {
     throw new InvalidImageUploadError("The uploaded file is empty.");
   }
   if (sizeBytes > MAX_IMAGE_BYTES) {
     throw new InvalidImageUploadError(
       `Image is too large (${Math.round(sizeBytes / 1024)}KB) — the limit is ${Math.round(MAX_IMAGE_BYTES / 1024)}KB.`,
+    );
+  }
+  const kind = sniffImageKind(bytes);
+  const claimed = mimeType === "image/png" ? "png" : mimeType === "image/jpeg" ? "jpeg" : null;
+  if (!kind || kind !== claimed) {
+    throw new InvalidImageUploadError(
+      "The file's contents don't match its declared image type — please upload a real PNG or JPEG.",
     );
   }
 }
@@ -90,7 +123,7 @@ export async function saveUploadedImage(
     bytes: Buffer;
   },
 ): Promise<SavedImage> {
-  assertValidImage(opts.mimeType, opts.bytes.length);
+  assertValidImage(opts.mimeType, opts.bytes);
 
   await mkdir(STORAGE_ROOT, { recursive: true });
 

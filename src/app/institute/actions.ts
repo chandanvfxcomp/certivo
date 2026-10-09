@@ -85,7 +85,7 @@ export async function registerInstitute(
 
   // Rate-limit by IP — public form, abuse target.
   const rateLimitKey = `institute-register:${await getClientIp()}`;
-  if (isRateLimited(rateLimitKey)) {
+  if (await isRateLimited(rateLimitKey)) {
     return { status: "error", message: "Too many registration attempts. Please wait a few minutes and try again." };
   }
 

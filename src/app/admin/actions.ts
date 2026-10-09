@@ -15,6 +15,7 @@ import { withTenant } from "@/server/db/tenant-client";
 import { verifyPassword, verifyPasswordAgainstDummy, hashPassword, generateTempPassword } from "@/server/auth/password";
 import { createSessionCookie, clearSessionCookie, requireAdminSession } from "@/server/auth/session";
 import { isRateLimited, resetRateLimit, getClientIp } from "@/server/auth/rate-limit";
+import { createPickerToken } from "@/server/auth/picker-token";
 import { ulid, randomBase32 } from "@/lib/ulid";
 import { generateCertificateCode } from "@/lib/certificate-code";
 import { findUnsupportedCertificateText } from "@/server/certificates/generate-pdf";
@@ -109,7 +110,7 @@ export async function loginAdmin(formData: FormData): Promise<void> {
   // at all. Keyed by IP + the identifier being attempted, not either
   // alone — see rate-limit.ts's own comment for why.
   const rateLimitKey = `admin:${await getClientIp()}:${email}`;
-  if (isRateLimited(rateLimitKey)) {
+  if (await isRateLimited(rateLimitKey)) {
     logger.warn("admin.login_rate_limited", { email });
     redirect("/admin/login?error=rate_limited");
   }
@@ -148,9 +149,11 @@ export async function loginAdmin(formData: FormData): Promise<void> {
     const eligible = memberships.filter((m) => m.tenant.status === "APPROVED");
     if (eligible.length === 1) membership = eligible[0];
     else if (eligible.length > 1) {
-      // Genuine choice — stash the verified email and show the picker.
-      // The password is NOT stored; the picker re-verifies it per tenant.
-      redirect(`/admin/login/pick?email=${encodeURIComponent(email)}`);
+      // Genuine choice — hand the picker a short-lived HMAC-signed token
+      // (L-1: never the raw email, so the tenant list can't be enumerated
+      // without a verified password). The password is NOT stored; the
+      // picker re-verifies it per tenant.
+      redirect(`/admin/login/pick?token=${encodeURIComponent(createPickerToken(email))}`);
     }
   }
 
@@ -168,7 +171,7 @@ export async function loginAdmin(formData: FormData): Promise<void> {
     tenantId: membership.tenant.id,
     membershipId: membership.id,
   });
-  resetRateLimit(rateLimitKey);
+  await resetRateLimit(rateLimitKey);
   logger.info("admin.login", { userId: user.id, tenantId: membership.tenant.id });
   redirect("/admin/dashboard");
 }
@@ -832,6 +835,12 @@ export async function bulkRegisterStudents(
   const csvText = String(formData.get("csvText") ?? "");
   if (!csvText.trim()) {
     return { status: "error", message: "No CSV content received." };
+  }
+  // Security (audit 2026-10-09, L-3): cap the raw input size BEFORE parsing —
+  // a multi-MB paste would otherwise spike memory in the server action. 500
+  // rows of student data fits comfortably in 2 MB.
+  if (Buffer.byteLength(csvText, "utf8") > 2 * 1024 * 1024) {
+    return { status: "error", message: "CSV is too large (max 2 MB) — split it into smaller files." };
   }
 
   const grid = parseCsvText(csvText);

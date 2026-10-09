@@ -26,7 +26,7 @@ export async function loginSuperAdmin(formData: FormData): Promise<void> {
   if (!email || !password) redirect("/super-admin/login?error=missing");
 
   const rateLimitKey = `superadmin:${await getClientIp()}:${email}`;
-  if (isRateLimited(rateLimitKey)) {
+  if (await isRateLimited(rateLimitKey)) {
     logger.warn("superadmin.login_rate_limited", { email });
     redirect("/super-admin/login?error=rate_limited");
   }
@@ -40,7 +40,7 @@ export async function loginSuperAdmin(formData: FormData): Promise<void> {
   if (!ok) redirect("/super-admin/login?error=invalid");
 
   await createSessionCookie({ kind: "superadmin", userId: user.id });
-  resetRateLimit(rateLimitKey);
+  await resetRateLimit(rateLimitKey);
   logger.info("superadmin.login", { userId: user.id });
   redirect("/super-admin/dashboard");
 }

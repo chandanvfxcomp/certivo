@@ -116,12 +116,53 @@ export async function requireAdminSession(): Promise<Extract<SessionPayload, { k
   if (!session || session.kind !== "admin") {
     throw new Error("UNAUTHENTICATED_ADMIN");
   }
+  // Security (audit 2026-10-09, M-2): re-verify membership + tenant status
+  // from the DB on every check, so suspending an institute or revoking an
+  // admin's membership takes effect immediately instead of waiting for the
+  // 7-day cookie to expire. Single indexed lookup (membership PK).
+  const membership = await prisma.membership.findUnique({
+    where: { id: session.membershipId },
+    select: {
+      status: true,
+      deletedAt: true,
+      tenant: { select: { status: true, deletedAt: true } },
+    },
+  });
+  if (
+    !membership ||
+    membership.deletedAt ||
+    membership.status !== "ACTIVE" ||
+    membership.tenant.status !== "APPROVED" ||
+    membership.tenant.deletedAt
+  ) {
+    throw new Error("UNAUTHENTICATED_ADMIN");
+  }
   return session;
 }
 
 export async function requireStudentSession(): Promise<Extract<SessionPayload, { kind: "student" }>> {
   const session = await getSession();
   if (!session || session.kind !== "student") {
+    throw new Error("UNAUTHENTICATED_STUDENT");
+  }
+  // Security (audit 2026-10-09, M-2 — same class as admin): re-verify the
+  // student row + tenant status from the DB on every check, so a suspended
+  // institute's students lose access immediately. Single indexed lookup.
+  const student = await prisma.student.findUnique({
+    where: { id: session.studentId },
+    select: {
+      deletedAt: true,
+      user: { select: { status: true } },
+      tenant: { select: { status: true, deletedAt: true } },
+    },
+  });
+  if (
+    !student ||
+    student.deletedAt ||
+    student.user?.status !== "ACTIVE" ||
+    student.tenant.status !== "APPROVED" ||
+    student.tenant.deletedAt
+  ) {
     throw new Error("UNAUTHENTICATED_STUDENT");
   }
   return session;

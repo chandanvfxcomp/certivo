@@ -781,6 +781,19 @@ model UsageCounter {
   @@map("usage_counter")
 }
 
+// Security (audit 2026-10-09, M-1): shared, Postgres-backed rate-limit
+// buckets. The old in-memory Map limiter was per-serverless-instance; this
+// table makes the fixed-window budget global across all instances.
+model RateLimitBucket {
+  key         String   @id @db.VarChar(191)
+  count       Int      @default(0)
+  windowStart DateTime @map("window_start") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([windowStart])
+  @@map("rate_limit_bucket")
+}
+
 enum SubStatus {
   ACTIVE
   PAST_DUE

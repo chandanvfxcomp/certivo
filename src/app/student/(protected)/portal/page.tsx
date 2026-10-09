@@ -147,6 +147,12 @@ export default async function StudentPortalPage({
         </p>
       )}
 
+      {error === "manual_disabled" && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          Manual payment marking is disabled — please complete the online payment to continue.
+        </p>
+      )}
+
       <Card className="p-6">
         <h2 className="mb-4 font-semibold">Your certificate</h2>
         {certificate ? (
@@ -181,17 +187,17 @@ export default async function StudentPortalPage({
                     amountLabel={formatPaise(PLATFORM_REDOWNLOAD_FEE_PAISE)}
                     onPaid={() => window.location.reload()}
                   />
-                  <form action={payPlatformFee.bind(null, certificate.id)}>
-                    <SubmitButton pendingText="Processing…" variant="outline" size="sm">
-                      {onlinePayEnabled
-                        ? "Or mark paid manually"
-                        : `Pay ${formatPaise(PLATFORM_REDOWNLOAD_FEE_PAISE)} now`}
-                    </SubmitButton>
-                  </form>
                   {!onlinePayEnabled && (
-                    <p className="text-xs text-neutral-500">
-                      Online payment isn&apos;t set up yet — this marks the fee paid directly.
-                    </p>
+                    <>
+                      <form action={payPlatformFee.bind(null, certificate.id)}>
+                        <SubmitButton pendingText="Processing…" variant="outline" size="sm">
+                          {`Pay ${formatPaise(PLATFORM_REDOWNLOAD_FEE_PAISE)} now`}
+                        </SubmitButton>
+                      </form>
+                      <p className="text-xs text-neutral-500">
+                        Online payment isn&apos;t set up yet — this marks the fee paid directly.
+                      </p>
+                    </>
                   )}
                 </div>
               ) : (

@@ -8,6 +8,7 @@ import { verifyPassword, verifyPasswordAgainstDummy } from "@/server/auth/passwo
 import { createSessionCookie, clearSessionCookie, requireStudentSession } from "@/server/auth/session";
 import { withTenant } from "@/server/db/tenant-client";
 import { isRateLimited, resetRateLimit, getClientIp } from "@/server/auth/rate-limit";
+import { isAnyPaymentConfigured } from "@/server/payments/provider";
 import { writeAuditLog } from "@/server/audit/log";
 import { logger } from "@/lib/logger";
 
@@ -21,7 +22,7 @@ export async function loginStudent(formData: FormData): Promise<void> {
   // at all. Keyed by IP + the identifier being attempted — see
   // rate-limit.ts's own comment for why.
   const rateLimitKey = `student:${await getClientIp()}:${studentCode}`;
-  if (isRateLimited(rateLimitKey)) {
+  if (await isRateLimited(rateLimitKey)) {
     logger.warn("student.login_rate_limited", { studentCode });
     redirect("/student/login?error=rate_limited");
   }
@@ -53,7 +54,7 @@ export async function loginStudent(formData: FormData): Promise<void> {
     studentId: student.id,
     tenantId: student.tenant.id,
   });
-  resetRateLimit(rateLimitKey);
+  await resetRateLimit(rateLimitKey);
   logger.info("student.login", { studentId: student.id, tenantId: student.tenant.id });
   redirect("/student/portal");
 }
@@ -74,9 +75,23 @@ export async function logoutStudent(): Promise<void> {
  *
  * No payment gateway yet — marks paid directly.
  * Wire Razorpay here when the gateway lands (see docs/payments).
+ *
+ * Security (audit 2026-10-09, H-1): the manual "mark paid" path exists ONLY
+ * while no payment gateway is configured. Once any provider is live this
+ * action fails closed, so the ₹299 fee cannot be bypassed by calling the
+ * action directly.
  */
 export async function payPlatformFee(certificateId: string): Promise<void> {
   const session = await requireStudentSession();
+
+  if (await isAnyPaymentConfigured()) {
+    logger.warn("certificate.platform_fee_manual_blocked", {
+      tenantId: session.tenantId,
+      certificateId,
+      studentId: session.studentId,
+    });
+    redirect("/student/portal?error=manual_disabled");
+  }
 
   const updated = await withTenant(session.tenantId, async (tx) => {
     const result = await tx.certificate.updateMany({

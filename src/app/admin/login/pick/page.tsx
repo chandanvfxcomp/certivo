@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/server/db/client";
+import { verifyPickerToken } from "@/server/auth/picker-token";
 import { loginAdmin } from "@/app/admin/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +12,16 @@ import { BRAND } from "@/config/brand";
 // Tenant picker: shown when one email/password is valid for multiple
 // approved institutes. Re-verifies the password per submission — the
 // password itself is never stored between the first attempt and this page.
+// Security (audit 2026-10-09, L-1): the page accepts only a short-lived
+// HMAC-signed token (minted after a verified password in loginAdmin), never
+// a raw email — so an email's institutes can't be enumerated by probing URLs.
 export default async function AdminLoginPickPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ token?: string }>;
 }) {
-  const { email } = await searchParams;
+  const { token } = await searchParams;
+  const email = verifyPickerToken(token);
   if (!email) redirect("/admin/login");
 
   const user = await prisma.user.findUnique({

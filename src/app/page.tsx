@@ -550,6 +550,11 @@ function SiteFooter({ brand }: { brand: ResolvedBranding }) {
             )}
           </span>
         </div>
+        {/* Security audit L-4: disclose the anonymous visit counting. */}
+        <p className="mx-auto max-w-6xl px-6 pb-4 text-[11px] leading-relaxed text-neutral-400">
+          Privacy: we count page visits (IP address and browser type only) to
+          improve this site — no personal data is collected on public pages.
+        </p>
       </div>
     </footer>
   );

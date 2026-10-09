@@ -1,67 +1,119 @@
 // src/server/auth/rate-limit.ts
 //
 // QA audit finding C2: neither loginAdmin nor loginStudent had any
-// brute-force/credential-stuffing protection at all. This is a minimal,
-// dependency-free, in-memory fixed-window limiter — good enough to blunt
-// naive automated guessing against a single running instance, which is
-// this app's whole deployment shape today (see .env.example — one
-// Postgres, no queue/cache infra yet).
+// brute-force/credential-stuffing protection at all.
 //
-// Deliberately NOT a distributed limiter: the moment this app runs behind
-// a load balancer with multiple instances, replace the Map below with a
-// shared store (Redis, or a Postgres table) behind the same
-// isRateLimited()/resetRateLimit() interface — every call site here stays
-// unchanged.
+// Security audit (2026-10-09, M-1): the previous in-memory Map limiter was
+// per-serverless-instance on Vercel, so the "10 attempts / 15 min" budget
+// effectively multiplied by instance count. This is now a Postgres-backed
+// fixed-window limiter — one atomic UPSERT per check, so the budget is
+// global across all instances. The exported interface
+// (isRateLimited/resetRateLimit/getClientIp) is unchanged; call sites only
+// had to add `await`.
 import { headers } from "next/headers";
+import { prisma } from "@/server/db/client";
+import { logger } from "@/lib/logger";
 
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_ATTEMPTS_PER_WINDOW = 10;
 
-interface Bucket {
-  count: number;
-  windowStart: number;
+// Best-effort self-heal: create the bucket table if it doesn't exist yet
+// (e.g. the super-admin hasn't run the 1-click migration). Idempotent and
+// guarded to run at most once per process; failures are swallowed because
+// the limiter must never break logins.
+let tableEnsured = false;
+async function ensureTable(): Promise<void> {
+  if (tableEnsured) return;
+  tableEnsured = true;
+  try {
+    await prisma.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "rate_limit_bucket" (
+        "key" VARCHAR(191) PRIMARY KEY,
+        "count" INTEGER NOT NULL DEFAULT 0,
+        "window_start" TIMESTAMPTZ NOT NULL,
+        "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`;
+    await prisma.$executeRaw`
+      CREATE INDEX IF NOT EXISTS "rate_limit_bucket_window_start_idx"
+        ON "rate_limit_bucket"("window_start")`;
+  } catch (err) {
+    logger.warn("rate_limit.ensure_table_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
-const buckets = new Map<string, Bucket>();
-
-// Prevents the Map from growing unbounded on a long-running process —
-// this is routine housekeeping, not on any request's hot path.
-const cleanupTimer = setInterval(
-  () => {
-    const now = Date.now();
-    for (const [key, bucket] of buckets) {
-      if (now - bucket.windowStart > WINDOW_MS) buckets.delete(key);
-    }
-  },
-  WINDOW_MS,
-);
-// Don't hold the process open just for this timer (matters for scripts /
-// serverless — no-op in environments without `unref`, e.g. some edge runtimes).
-cleanupTimer.unref?.();
+// Opportunistic cleanup of expired buckets — at most once per window, and
+// never on the request's critical path (fire-and-forget, errors swallowed).
+let lastCleanup = 0;
+function maybeCleanup(): void {
+  const now = Date.now();
+  if (now - lastCleanup < WINDOW_MS) return;
+  lastCleanup = now;
+  prisma.$executeRaw`
+    DELETE FROM "rate_limit_bucket"
+    WHERE "window_start" < ${new Date(now - WINDOW_MS)}
+  `.catch((err: unknown) => {
+    logger.warn("rate_limit.cleanup_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+}
 
 /**
  * Returns true if `key` has exceeded MAX_ATTEMPTS_PER_WINDOW attempts
- * within the current window, and records this attempt either way. Callers
- * should build `key` from something that identifies the actual attacker
- * surface (e.g. `${ip}:${normalizedIdentifier}`), not just the identifier
- * alone, so one person mistyping their own password repeatedly doesn't
- * get lumped in with an attacker hammering many accounts from one IP —
- * both are still bounded, just under separate keys.
+ * within the current window, and records this attempt either way. The
+ * check-and-increment is a single atomic UPSERT, so concurrent instances
+ * share one global budget. Callers should build `key` from something that
+ * identifies the actual attacker surface (e.g.
+ * `${ip}:${normalizedIdentifier}`), not just the identifier alone, so one
+ * person mistyping their own password repeatedly doesn't get lumped in
+ * with an attacker hammering many accounts from one IP — both are still
+ * bounded, just under separate keys.
+ *
+ * Fail-open: if the database is unreachable, the attempt is allowed and a
+ * warning is logged. A rate limiter must never be the thing that takes
+ * logins down.
  */
-export function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || now - bucket.windowStart > WINDOW_MS) {
-    buckets.set(key, { count: 1, windowStart: now });
+export async function isRateLimited(key: string): Promise<boolean> {
+  await ensureTable();
+  maybeCleanup();
+  const windowCutoff = new Date(Date.now() - WINDOW_MS);
+  try {
+    const rows = await prisma.$queryRaw<Array<{ count: number }>>`
+      INSERT INTO "rate_limit_bucket" ("key", "count", "window_start", "updated_at")
+      VALUES (${key}, 1, NOW(), NOW())
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = CASE
+          WHEN "rate_limit_bucket"."window_start" < ${windowCutoff} THEN 1
+          ELSE "rate_limit_bucket"."count" + 1
+        END,
+        "window_start" = CASE
+          WHEN "rate_limit_bucket"."window_start" < ${windowCutoff} THEN NOW()
+          ELSE "rate_limit_bucket"."window_start"
+        END,
+        "updated_at" = NOW()
+      RETURNING "count"`;
+    const count = Number(rows[0]?.count ?? 1);
+    return count > MAX_ATTEMPTS_PER_WINDOW;
+  } catch (err) {
+    logger.warn("rate_limit.check_failed_open", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return false;
   }
-  bucket.count += 1;
-  return bucket.count > MAX_ATTEMPTS_PER_WINDOW;
 }
 
 /** Call after a successful login so a legitimate user isn't penalized by earlier typos. */
-export function resetRateLimit(key: string): void {
-  buckets.delete(key);
+export async function resetRateLimit(key: string): Promise<void> {
+  await ensureTable();
+  try {
+    await prisma.$executeRaw`DELETE FROM "rate_limit_bucket" WHERE "key" = ${key}`;
+  } catch (err) {
+    logger.warn("rate_limit.reset_failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 /**

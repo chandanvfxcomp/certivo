@@ -7,7 +7,7 @@ import { getClientIp, isRateLimited } from "@/server/auth/rate-limit";
 // Rate-limited: 5/hour per IP.
 export async function POST(req: Request): Promise<NextResponse> {
   const ip = await getClientIp();
-  if (isRateLimited(`lead:${ip}`)) {
+  if (await isRateLimited(`lead:${ip}`)) {
     return NextResponse.json({ error: "Too many requests — please try again later" }, { status: 429 });
   }
 
