@@ -45,14 +45,14 @@ export default async function AdminLoginPickPage({
       <form action={loginAdmin} className="flex flex-col gap-4">
         <input type="hidden" name="email" value={email} />
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="tenantSlug" className="text-neutral-300">
+          <Label htmlFor="tenantSlug">
             Institute
           </Label>
           <select
             id="tenantSlug"
             name="tenantSlug"
             required
-            className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&>option]:bg-slate-900"
+            className="h-11 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
           >
             {tenants.map((t) => (
               <option key={t.slug} value={t.slug}>
@@ -62,7 +62,7 @@ export default async function AdminLoginPickPage({
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="password" className="text-neutral-300">
+          <Label htmlFor="password">
             Password
           </Label>
           <Input
@@ -71,7 +71,7 @@ export default async function AdminLoginPickPage({
             type="password"
             required
             autoFocus
-            className="h-11 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-neutral-500 focus-visible:ring-brand-500"
+            className="h-11 rounded-xl focus-visible:ring-brand-500"
           />
         </div>
         <SubmitButton

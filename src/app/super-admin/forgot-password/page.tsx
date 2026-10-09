@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
       footer={
         <a
           href="/super-admin/login"
-          className="text-neutral-400 underline underline-offset-4 transition hover:text-white"
+          className="text-neutral-500 underline underline-offset-4 transition hover:text-neutral-900"
         >
           Back to login
         </a>
@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
           placeholder="Email"
           required
           autoComplete="email"
-          className="h-11 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-neutral-500 focus-visible:ring-brand-500"
+          className="h-11 rounded-xl focus-visible:ring-brand-500"
         />
         <Button
           type="submit"

@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 const initialState: RegisterInstituteState = { status: "idle" };
 
 const inputClass =
-  "h-11 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-neutral-500 focus-visible:ring-brand-500";
+  "h-11 rounded-xl focus-visible:ring-brand-500";
 
 function Field({
   id,
@@ -25,7 +25,7 @@ function Field({
 }: { id: string; label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-neutral-300">
+      <Label htmlFor={id}>
         {label}
       </Label>
       <Input id={id} name={id} className={inputClass} {...props} />
@@ -39,15 +39,15 @@ export function RegisterInstituteForm({ referralCode }: { referralCode?: string 
   if (state.status === "success") {
     return (
       <div className="flex flex-col gap-4 text-center">
-        <p className="text-sm leading-relaxed text-neutral-300">
-          <strong className="text-white">{state.instituteName}</strong> is awaiting approval
+        <p className="text-sm leading-relaxed text-neutral-600">
+          <strong className="text-neutral-900">{state.instituteName}</strong> is awaiting approval
           from Certivo&apos;s Super Admin. Once approved, sign in with the email and
           password you just chose — we&apos;ll review the application shortly.
         </p>
         <Link href="/" className="mt-2 block">
           <Button
             variant="outline"
-            className="h-11 w-full rounded-xl border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+            className="h-11 w-full rounded-xl"
           >
             Back to home
           </Button>
@@ -59,7 +59,7 @@ export function RegisterInstituteForm({ referralCode }: { referralCode?: string 
   return (
     <div>
       {referralCode && (
-        <p className="mb-4 rounded-xl border border-brand-500/20 bg-brand-500/10 px-3 py-2 text-sm text-brand-300">
+        <p className="mb-4 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-700">
           You were referred by a partner institute — welcome!
         </p>
       )}
@@ -68,7 +68,7 @@ export function RegisterInstituteForm({ referralCode }: { referralCode?: string 
           <input type="hidden" name="referralCode" value={referralCode} />
         )}
         {state.status === "error" && (
-          <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {state.message}
           </p>
         )}
@@ -104,7 +104,7 @@ export function RegisterInstituteForm({ referralCode }: { referralCode?: string 
           minLength={8}
           autoComplete="new-password"
         />
-        <label className="flex items-start gap-2 text-sm text-neutral-400">
+        <label className="flex items-start gap-2 text-sm text-neutral-600">
           <input type="checkbox" name="termsAccepted" required className="mt-1 accent-indigo-500" />
           <span>
             I agree to Certivo&apos;s Terms of Service and Privacy Policy on behalf of this
@@ -119,9 +119,9 @@ export function RegisterInstituteForm({ referralCode }: { referralCode?: string 
           {pending ? "Submitting…" : "Submit for approval"}
         </Button>
       </form>
-      <p className="mt-5 text-center text-sm text-neutral-400">
+      <p className="mt-5 text-center text-sm text-neutral-500">
         Looking for your certificate instead?{" "}
-        <Link href="/student/login" className="underline underline-offset-4 transition hover:text-white">
+        <Link href="/student/login" className="underline underline-offset-4 transition hover:text-neutral-900">
           Student sign in
         </Link>
       </p>

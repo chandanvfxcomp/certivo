@@ -18,14 +18,14 @@ export default function ForgotPasswordPage() {
         <Link href="/student/login">
           <Button
             variant="outline"
-            className="h-11 w-full rounded-xl border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
+            className="h-11 w-full rounded-xl"
           >
             Back to sign in
           </Button>
         </Link>
       }
     >
-      <div className="flex flex-col gap-4 text-sm leading-relaxed text-neutral-400">
+      <div className="flex flex-col gap-4 text-sm leading-relaxed text-neutral-600">
         <p>
           Password reset emails aren&apos;t set up yet. For now, please contact your
           institute&apos;s admin — they can look up your account and share your login
@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
             contact method rather than none. */}
         <a
           href={`mailto:${BRAND.supportEmail}`}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-center text-white underline underline-offset-4 transition hover:bg-white/10"
+          className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-center text-neutral-900 underline underline-offset-4 shadow-sm transition hover:border-neutral-300"
         >
           Email {BRAND.supportEmail}
         </a>

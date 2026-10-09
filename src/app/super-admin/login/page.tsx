@@ -26,7 +26,7 @@ export default async function SuperAdminLoginPage({
       footer={
         <Link
           href="/super-admin/forgot-password"
-          className="text-neutral-400 underline underline-offset-4 transition hover:text-white"
+          className="text-neutral-500 underline underline-offset-4 transition hover:text-neutral-900"
         >
           Forgot password?
         </Link>
@@ -34,12 +34,12 @@ export default async function SuperAdminLoginPage({
     >
       <form action={loginSuperAdmin} className="flex flex-col gap-4">
         {error && (
-          <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {ERROR_MESSAGES[error] ?? "Something went wrong — please try again."}
           </p>
         )}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="email" className="text-neutral-300">
+          <Label htmlFor="email">
             Email
           </Label>
           <Input
@@ -48,11 +48,11 @@ export default async function SuperAdminLoginPage({
             type="email"
             required
             autoFocus
-            className="h-11 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-neutral-500 focus-visible:ring-brand-500"
+            className="h-11 rounded-xl focus-visible:ring-brand-500"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="password" className="text-neutral-300">
+          <Label htmlFor="password">
             Password
           </Label>
           <Input
@@ -60,7 +60,7 @@ export default async function SuperAdminLoginPage({
             name="password"
             type="password"
             required
-            className="h-11 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-neutral-500 focus-visible:ring-brand-500"
+            className="h-11 rounded-xl focus-visible:ring-brand-500"
           />
         </div>
         <SubmitButton
