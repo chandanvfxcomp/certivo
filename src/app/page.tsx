@@ -15,6 +15,7 @@ import { VisitBeacon } from "@/components/visit-beacon";
 import { Reveal } from "@/components/landing/reveal";
 import { CountUp } from "@/components/landing/count-up";
 import { FaqAccordion } from "@/components/landing/faq-accordion";
+import { SiteNav } from "@/components/site-nav";
 import {
   CertificateIcon,
   ShieldCheckIcon,
@@ -88,7 +89,7 @@ function SiteHeader({ brand }: { brand: ResolvedBranding }) {
     : undefined;
   return (
     <header className="sticky top-0 z-20 border-b border-neutral-200/60 bg-neutral-0/80 backdrop-blur dark:border-neutral-800/60 dark:bg-neutral-950/80">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <div className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2.5">
           {brand.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -104,31 +105,10 @@ function SiteHeader({ brand }: { brand: ResolvedBranding }) {
             {brand.name}
           </span>
         </Link>
-        {/* QA audit findings D5/G1: consolidated onto one consistent pair
-            of labels ("Student sign in" / "Institute admin sign in") used
-            identically in the nav, hero CTAs, cross-links, and page
-            headings — previously five different labels described these
-            same two destinations across the app. */}
-        <nav className="flex items-center gap-2">
-          <Link href="/pricing">
-            <Button variant="ghost" size="sm">
-              Pricing
-            </Button>
-          </Link>
-          <Link href="/student/login" className="hidden sm:inline-block">
-            <Button variant="ghost" size="sm">
-              Student sign in
-            </Button>
-          </Link>
-          <Link href="/admin/login">
-            <Button variant="outline" size="sm">
-              Institute admin sign in
-            </Button>
-          </Link>
-          <Link href="/institute/register">
-            <Button size="sm">Register institute</Button>
-          </Link>
-        </nav>
+        {/* Clean primary nav: Home · Pricing · Student ▾ · Institute ▾ · FAQ.
+            Each audience's destinations live inside its dropdown (see
+            site-nav.tsx) instead of a button per destination. */}
+        <SiteNav />
       </div>
     </header>
   );
@@ -433,7 +413,7 @@ function FaqSection() {
     },
   ];
   return (
-    <section className="border-t border-neutral-200 px-6 py-20 dark:border-neutral-800">
+    <section id="faq" className="scroll-mt-20 border-t border-neutral-200 px-6 py-20 dark:border-neutral-800">
       <div className="mx-auto max-w-2xl">
         <Reveal>
           <p className="text-center text-xs font-bold uppercase tracking-[0.14em] text-brand-600 dark:text-brand-400">
