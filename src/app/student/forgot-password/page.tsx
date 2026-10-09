@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AuthLayout } from "@/components/auth-layout";
 import { BRAND } from "@/config/brand";
 
 // SPEC-GAP: no email/SMS sending is wired up yet, so this is an honest
@@ -11,37 +11,39 @@ import { BRAND } from "@/config/brand";
 // broken "check your email" screen that never arrives.
 export default function ForgotPasswordPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-6 dark:bg-neutral-950">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Forgot your password?</CardTitle>
-          <CardDescription>Self-service reset isn&apos;t available yet</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4 text-sm text-neutral-600 dark:text-neutral-400">
-          <p>
-            Password reset emails aren&apos;t set up yet. For now, please contact your
-            institute&apos;s admin — they can look up your account and share your login
-            details again.
-          </p>
-          {/* QA audit finding D2: the page told a locked-out student to
-              "contact your admin" with no way to actually do that from
-              here — a genuine dead end. This is a stopgap, not a full
-              per-institute contact directory (that needs a Centre contact
-              field, which doesn't exist yet), but it's a real, working
-              contact method rather than none. */}
-          <a
-            href={`mailto:${BRAND.supportEmail}`}
-            className="rounded-md border border-neutral-200 px-3 py-2 text-center underline underline-offset-2 dark:border-neutral-800"
+    <AuthLayout
+      title="Forgot your password?"
+      description="Self-service reset isn't available yet"
+      footer={
+        <Link href="/student/login">
+          <Button
+            variant="outline"
+            className="h-11 w-full rounded-xl border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
           >
-            Email {BRAND.supportEmail}
-          </a>
-          <Link href="/student/login">
-            <Button variant="outline" className="w-full">
-              Back to sign in
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
-    </main>
+            Back to sign in
+          </Button>
+        </Link>
+      }
+    >
+      <div className="flex flex-col gap-4 text-sm leading-relaxed text-neutral-400">
+        <p>
+          Password reset emails aren&apos;t set up yet. For now, please contact your
+          institute&apos;s admin — they can look up your account and share your login
+          details again.
+        </p>
+        {/* QA audit finding D2: the page told a locked-out student to
+            "contact your admin" with no way to actually do that from
+            here — a genuine dead end. This is a stopgap, not a full
+            per-institute contact directory (that needs a Centre contact
+            field, which doesn't exist yet), but it's a real, working
+            contact method rather than none. */}
+        <a
+          href={`mailto:${BRAND.supportEmail}`}
+          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-center text-white underline underline-offset-4 transition hover:bg-white/10"
+        >
+          Email {BRAND.supportEmail}
+        </a>
+      </div>
+    </AuthLayout>
   );
 }

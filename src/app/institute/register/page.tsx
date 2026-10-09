@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { RegisterInstituteForm } from "./form";
+import { AuthLayout } from "@/components/auth-layout";
 import { BRAND } from "@/config/brand";
 import { normalizeReferralCode } from "@/server/referrals/code";
 import { prisma } from "@/server/db/client";
@@ -24,11 +24,12 @@ export default async function InstituteRegisterPage({
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-neutral-50 px-6 py-12 dark:bg-neutral-950">
-      <Link href="/" className="mb-6 text-sm font-semibold">
-        {BRAND.name}
-      </Link>
+    <AuthLayout
+      wide
+      title="Register your institute"
+      description={`${BRAND.name} — creates your institute's own admin login. A Super Admin approves it before sign-in opens.`}
+    >
       <RegisterInstituteForm referralCode={referralCode} />
-    </main>
+    </AuthLayout>
   );
 }

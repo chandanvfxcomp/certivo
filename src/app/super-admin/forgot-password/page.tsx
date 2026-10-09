@@ -1,25 +1,40 @@
 import { requestPasswordReset } from "@/server/auth/password-reset";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AuthLayout } from "@/components/auth-layout";
+import { BRAND } from "@/config/brand";
 
 export default function ForgotPasswordPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-6 dark:bg-neutral-950">
-      <Card className="w-full max-w-sm p-6">
-        <h1 className="text-xl font-semibold">Reset password</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Enter your super-admin email — we&apos;ll send a reset link (valid 1 hour).
-        </p>
-        <form action={request} className="mt-4 space-y-3">
-          <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
-          <Button type="submit" className="w-full">Send reset link</Button>
-        </form>
-        <p className="mt-3 text-center text-sm">
-          <a href="/super-admin/login" className="text-blue-600 hover:underline">Back to login</a>
-        </p>
-      </Card>
-    </main>
+    <AuthLayout
+      title="Reset password"
+      description={`${BRAND.name} — we'll send a reset link (valid 1 hour)`}
+      footer={
+        <a
+          href="/super-admin/login"
+          className="text-neutral-400 underline underline-offset-4 transition hover:text-white"
+        >
+          Back to login
+        </a>
+      }
+    >
+      <form action={request} className="flex flex-col gap-4">
+        <Input
+          name="email"
+          type="email"
+          placeholder="Email"
+          required
+          autoComplete="email"
+          className="h-11 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-neutral-500 focus-visible:ring-brand-500"
+        />
+        <Button
+          type="submit"
+          className="h-11 w-full rounded-xl bg-gradient-to-r from-brand-500 to-indigo-600 text-[15px] font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-brand-400 hover:to-indigo-500"
+        >
+          Send reset link
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }
 

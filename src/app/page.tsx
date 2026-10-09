@@ -540,6 +540,13 @@ function SiteFooter({ brand }: { brand: ResolvedBranding }) {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-6 py-5 text-xs text-neutral-400 sm:flex-row">
           <span>
             {brand.isWhiteLabel ? brand.name : `${BRAND.legalName} · ${BRAND.supportEmail}`}
+            {" · "}
+            <Link
+              href="/super-admin/login"
+              className="transition hover:text-neutral-600 dark:hover:text-neutral-200"
+            >
+              Platform admin
+            </Link>
           </span>
           <span>
             Certificates never expire · Verification is always free
